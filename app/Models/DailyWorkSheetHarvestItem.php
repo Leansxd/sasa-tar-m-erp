@@ -29,6 +29,10 @@ class DailyWorkSheetHarvestItem extends Model
         'merchant_scale_2nd_kg',
         'is_merchant_weighed',
         'weighed_by_id',
+        'buyer_party_id',
+        'first_weighing_photo',
+        'second_weighing_photo',
+        'dia_voucher_code',
     ];
 
     protected $casts = [
@@ -61,6 +65,11 @@ class DailyWorkSheetHarvestItem extends Model
     public function packaging(): BelongsTo
     {
         return $this->belongsTo(PackagingDefinition::class, 'packaging_definition_id');
+    }
+
+    public function buyerParty(): BelongsTo
+    {
+        return $this->belongsTo(TradingParty::class, 'buyer_party_id');
     }
 
     public function weighedBy(): BelongsTo

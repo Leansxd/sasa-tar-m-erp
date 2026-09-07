@@ -245,10 +245,16 @@ class AgricultureController extends Controller
             'start_time' => 'required|string',
             'is_fertilized' => 'boolean',
             'fertilization_recipe_id' => 'nullable|exists:gubre_receteleri,id',
+            'tank_stage_note' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
         ]);
 
-        $schedule = IrrigationSchedule::updateOrCreate(['id' => $request->id], $validated);
+        if (!empty($validated['tank_stage_note']) && empty($validated['notes'])) {
+            $validated['notes'] = $validated['tank_stage_note'];
+        }
+
+        $scheduleData = collect($validated)->except('tank_stage_note')->toArray();
+        $schedule = IrrigationSchedule::updateOrCreate(['id' => $request->id], $scheduleData);
 
         if ($request->has('valves') && is_array($request->valves)) {
             $schedule->valves()->delete();
@@ -261,7 +267,7 @@ class AgricultureController extends Controller
                         'production_location_id' => $vLocId,
                         'location_valve_id' => $valveId,
                         'duration_minutes' => $v['duration_minutes'] ?? 5,
-                        'tank_step_level' => $v['tank_step_level'] ?? null,
+                        'tank_step_level' => $v['tank_step_level'] ?? $validated['tank_stage_note'] ?? null,
                     ]);
                 }
             }
@@ -578,7 +584,7 @@ class AgricultureController extends Controller
             foreach ($request->crew_leaders as $cl) {
                 if (!empty($cl['crew_leader_id'])) {
                     $leaderObj = CrewLeader::find($cl['crew_leader_id']);
-                    $workerCount = intval($cl['worker_count'] ?? 1);
+                    $workerCount = intval($cl['worker_count'] ?? 1) + intval($cl['extra_worker_count'] ?? 0);
                     $carCount = intval($cl['car_count'] ?? 1);
                     $driverType = $cl['second_driver_fee_type'] ?? 'leader_rate';
                     $overtime = floatval($cl['overtime_hours'] ?? 0);
@@ -645,6 +651,12 @@ class AgricultureController extends Controller
                 if (!empty($h['product_id'])) {
                     $qty = floatval($h['quantity'] ?? 0);
                     $price = floatval($h['unit_price'] ?? 0);
+                    if ($price <= 0 && !empty($h['product_id'])) {
+                        $latestPrice = MarketPrice::where('product_id', $h['product_id'])->latest('price_date')->value('unit_price');
+                        if ($latestPrice) {
+                            $price = floatval($latestPrice);
+                        }
+                    }
 
                     $sheet->harvestItems()->create([
                         'product_id' => $h['product_id'],

@@ -17,10 +17,14 @@ class DailyWorkSheetCrewLeader extends Model
         'crew_leader_id',
         'worker_count',
         'car_count',
+        'second_driver_fee_type',
         'overtime_hours',
+        'overtime_end_time',
         'extra_wage_per_worker',
         'travel_fee',
         'meal_fee',
+        'ramadan_meal_count',
+        'is_food_included_override',
         'calculated_wage_total',
         'dia_cari_code',
     ];
@@ -32,6 +36,8 @@ class DailyWorkSheetCrewLeader extends Model
         'extra_wage_per_worker' => 'decimal:2',
         'travel_fee' => 'decimal:2',
         'meal_fee' => 'decimal:2',
+        'ramadan_meal_count' => 'integer',
+        'is_food_included_override' => 'boolean',
         'calculated_wage_total' => 'decimal:2',
     ];
 
