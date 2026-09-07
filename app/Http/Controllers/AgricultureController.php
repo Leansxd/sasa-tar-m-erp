@@ -252,11 +252,14 @@ class AgricultureController extends Controller
 
         if ($request->has('valves') && is_array($request->valves)) {
             $schedule->valves()->delete();
+            $locId = $request->production_location_id;
             foreach ($request->valves as $v) {
-                if (!empty($v['location_valve_id'])) {
+                $valveId = $v['location_valve_id'] ?? $v['valve_id'] ?? null;
+                $vLocId = $v['production_location_id'] ?? $locId;
+                if (!empty($valveId) && !empty($vLocId) && \App\Models\LocationValve::where('id', $valveId)->exists()) {
                     $schedule->valves()->create([
-                        'production_location_id' => $v['production_location_id'],
-                        'location_valve_id' => $v['location_valve_id'],
+                        'production_location_id' => $vLocId,
+                        'location_valve_id' => $valveId,
                         'duration_minutes' => $v['duration_minutes'] ?? 5,
                         'tank_step_level' => $v['tank_step_level'] ?? null,
                     ]);
@@ -294,6 +297,7 @@ class AgricultureController extends Controller
             'analysis_date' => 'required|date',
             'ph_level' => 'required|numeric|min:0|max:14',
             'ec_level' => 'required|numeric|min:0',
+            'chemical_details' => 'nullable|array',
             'notes' => 'nullable|string',
         ]);
 
@@ -316,13 +320,27 @@ class AgricultureController extends Controller
             'passive_start_date' => 'nullable|date',
             'source_switch_reason' => 'nullable|string',
             'is_filter_cleaned' => 'boolean',
+            'filter_cleaned_photo' => 'nullable',
             'water_tank_level' => 'required|in:full,half_plus,half_minus,empty',
+            'water_tank_photo' => 'nullable',
             'water_tank_note' => 'nullable|string',
             'chlorine_tank_level' => 'required|in:full,half_plus,half_minus,empty',
             'dosing_pump_mode' => 'required|in:auto,manual,faulty',
             'dosing_pump_manual_val' => 'nullable|string',
             'dosing_pump_fault_note' => 'nullable|string',
         ]);
+
+        if ($request->hasFile('filter_cleaned_photo')) {
+            $validated['filter_cleaned_photo'] = '/storage/' . $request->file('filter_cleaned_photo')->store('water_controls', 'public');
+        } elseif (!$request->filled('filter_cleaned_photo')) {
+            unset($validated['filter_cleaned_photo']);
+        }
+
+        if ($request->hasFile('water_tank_photo')) {
+            $validated['water_tank_photo'] = '/storage/' . $request->file('water_tank_photo')->store('water_controls', 'public');
+        } elseif (!$request->filled('water_tank_photo')) {
+            unset($validated['water_tank_photo']);
+        }
 
         RawWaterControl::updateOrCreate(['id' => $request->id], $validated);
 
@@ -782,5 +800,11 @@ class AgricultureController extends Controller
     {
         $sheet->delete();
         return redirect()->back()->with('success', 'Günlük işçi formu silindi.');
+    }
+
+    public function destroyMarketPrice(MarketPrice $price): RedirectResponse
+    {
+        $price->delete();
+        return redirect()->back()->with('success', 'Piyasa fiyat kaydı silindi.');
     }
 }

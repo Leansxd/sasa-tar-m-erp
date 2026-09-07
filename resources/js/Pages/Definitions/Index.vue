@@ -210,11 +210,11 @@ const productionLocationForm = useForm({
     total_area_dekar: 0,
     approx_plant_count: 0,
     sections: [
-        { name: 'Sera 1 - Tünel 1', section_type: 'greenhouse', area_dekar: 2.5, tunnel_count: 14, table_stand_count: 20 }
+        { id: null as any, name: 'Sera 1 - Tünel 1', section_type: 'greenhouse', area_dekar: 2.5, tunnel_count: 14, table_stand_count: 20 }
     ],
     valves: [
-        { valve_number: 'V-01', name: 'Vana 1 Sulama', duty: 'irrigation', description: 'Ana damlama hattı' },
-        { valve_number: 'V-22', name: 'Vana 22 Sisleme', duty: 'misting', description: 'Nem ve serinletme sislemesi' }
+        { id: null as any, valve_number: 'V-01', name: 'Vana 1 Sulama', duty: 'irrigation', description: 'Ana damlama hattı' },
+        { id: null as any, valve_number: 'V-22', name: 'Vana 22 Sisleme', duty: 'misting', description: 'Nem ve serinletme sislemesi' }
     ],
 });
 
@@ -226,9 +226,10 @@ const productForm = useForm({
     dia_stock_code: '',
     description: '',
     company_ids: [] as any[],
+    unit_ids: [] as any[],
     subtypes: [
-        { name: 'Çilek 1.Kalite', code: 'CLK-1' },
-        { name: 'Çilek 2.Kalite', code: 'CLK-2' }
+        { id: null, name: 'Çilek 1.Kalite', code: 'CLK-1' },
+        { id: null, name: 'Çilek 2.Kalite', code: 'CLK-2' }
     ],
 });
 
@@ -414,6 +415,29 @@ const openModal = (type: string, item: any = null) => {
             productionLocationForm.dia_warehouse_code = item.dia_warehouse_code;
             productionLocationForm.total_area_dekar = item.total_area_dekar;
             productionLocationForm.approx_plant_count = item.approx_plant_count;
+            productionLocationForm.sections = item.sections && item.sections.length
+                ? item.sections.map((s: any) => ({
+                    id: s.id,
+                    name: s.name,
+                    section_type: s.section_type || 'greenhouse',
+                    area_dekar: s.area_dekar,
+                    tunnel_count: s.tunnel_count,
+                    table_stand_count: s.table_stand_count,
+                    approx_plant_count: s.approx_plant_count,
+                }))
+                : [{ id: null, name: '', section_type: 'greenhouse', area_dekar: 0, tunnel_count: 0, table_stand_count: 0 }];
+            productionLocationForm.valves = item.valves && item.valves.length
+                ? item.valves.map((v: any) => ({
+                    id: v.id,
+                    valve_number: v.valve_number,
+                    name: v.name,
+                    duty: v.duty,
+                    description: v.description || '',
+                }))
+                : [{ id: null, valve_number: 'V-01', name: 'Vana 1', duty: 'irrigation', description: '' }];
+        } else {
+            productionLocationForm.sections = [{ id: null, name: 'Bölüm 1', section_type: 'greenhouse', area_dekar: 1, tunnel_count: 1, table_stand_count: 10 }];
+            productionLocationForm.valves = [{ id: null, valve_number: 'V-01', name: 'Vana 1', duty: 'irrigation', description: '' }];
         }
     } else if (type === 'product') {
         productForm.reset();
@@ -423,11 +447,17 @@ const openModal = (type: string, item: any = null) => {
             productForm.code = item.code;
             productForm.product_type = item.product_type;
             productForm.dia_stock_code = item.dia_stock_code;
-            productForm.description = item.description;
+            productForm.description = item.description || '';
             productForm.company_ids = item.companies ? item.companies.map((c: any) => c.id) : [];
+            productForm.unit_ids = item.units ? item.units.map((u: any) => u.id) : [];
             productForm.subtypes = item.subtypes && item.subtypes.length 
-                ? item.subtypes.map((st: any) => ({ name: st.name, code: st.code })) 
-                : [{ name: '', code: '' }];
+                ? item.subtypes.map((st: any) => ({ id: st.id, name: st.name, code: st.code })) 
+                : [{ id: null, name: '', code: '' }];
+        } else {
+            productForm.description = '';
+            productForm.company_ids = [];
+            productForm.unit_ids = [];
+            productForm.subtypes = [{ id: null, name: '1.Kalite', code: 'KL-1' }];
         }
     } else if (type === 'job_type') {
         jobTypeForm.reset();
@@ -437,6 +467,9 @@ const openModal = (type: string, item: any = null) => {
             jobTypeForm.code = item.code;
             jobTypeForm.form_type = item.form_type;
             jobTypeForm.description = item.description;
+            jobTypeForm.unit_ids = item.units ? item.units.map((u: any) => u.id) : [];
+        } else {
+            jobTypeForm.unit_ids = [];
         }
     } else if (type === 'unit') {
         unitForm.reset();
@@ -1601,6 +1634,22 @@ const currentTabLabel = computed(() => {
                         <label class="block font-bold mb-1">Firma Kodu</label>
                         <input v-model="companyForm.code" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required />
                     </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-bold mb-1">Vergi Numarası</label>
+                            <input v-model="companyForm.tax_number" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-mono" placeholder="Örn: 7890123456" />
+                        </div>
+                        <div>
+                            <label class="block font-bold mb-1">DİA Firma Kodu</label>
+                            <input v-model="companyForm.dia_company_code" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-mono" placeholder="DIA-SASA-01" />
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input v-model="companyForm.is_active" type="checkbox" class="rounded text-emerald-600" />
+                            <span class="font-bold text-emerald-600">Durum: {{ companyForm.is_active ? 'Aktif' : 'Pasif' }}</span>
+                        </label>
+                    </div>
                     <div class="flex justify-end space-x-2 pt-3 border-t">
                         <button type="button" @click="closeModal" class="px-4 py-2 border rounded-xl">İptal</button>
                         <button type="submit" class="px-4 py-2 bg-rose-600 text-white font-bold rounded-xl">Kaydet</button>
@@ -1720,13 +1769,33 @@ const currentTabLabel = computed(() => {
                             </select>
                         </div>
                         <div>
+                            <label class="block font-bold mb-1">Cari Kodu / Hesap No</label>
+                            <input v-model="tradingPartyForm.dia_cari_code" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-mono" placeholder="CAR-001" />
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="block font-bold mb-1">Vergi No / TCKN</label>
+                            <input v-model="tradingPartyForm.tax_number" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-mono" placeholder="Vergi No" />
+                        </div>
+                        <div>
+                            <label class="block font-bold mb-1">Telefon</label>
+                            <input v-model="tradingPartyForm.phone" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="0532..." />
+                        </div>
+                        <div>
+                            <label class="block font-bold mb-1">E-posta</label>
+                            <input v-model="tradingPartyForm.email" type="email" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="cari@firma.com" />
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
                             <label class="block font-bold mb-1">Varsayılan Nakliye Ücreti (₺)</label>
                             <input v-model="tradingPartyForm.default_transport_fee" type="number" step="0.1" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="0.00" />
                         </div>
-                    </div>
-                    <div>
-                        <label class="block font-bold mb-1">Cari Kodu / Hesap No</label>
-                        <input v-model="tradingPartyForm.dia_cari_code" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="CAR-001" />
+                        <div>
+                            <label class="block font-bold mb-1">Fatura & Sevk Adresi</label>
+                            <input v-model="tradingPartyForm.address" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="Açık adres..." />
+                        </div>
                     </div>
                     <div class="flex justify-end space-x-2 pt-3 border-t">
                         <button type="button" @click="closeModal" class="px-4 py-2 border rounded-xl">İptal</button>
@@ -1808,25 +1877,33 @@ const currentTabLabel = computed(() => {
                             <input v-model="productionLocationForm.dia_warehouse_code" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="DEPO-01" />
                         </div>
                     </div>
-                    <div class="border-t pt-2 mt-2">
-                        <label class="block font-bold mb-1">Sera Tünel ve Bölüm Detayları</label>
-                        <div v-for="(sec, idx) in productionLocationForm.sections" :key="idx" class="grid grid-cols-4 gap-1 mb-2 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border">
-                            <input v-model="sec.name" type="text" placeholder="Tünel/Bölüm Adı" class="border rounded p-1 dark:bg-slate-900" />
-                            <input v-model="sec.area_dekar" type="number" step="0.1" placeholder="Dekar" class="border rounded p-1 dark:bg-slate-900" />
-                            <input v-model="sec.tunnel_count" type="number" placeholder="Tünel Sayısı" class="border rounded p-1 dark:bg-slate-900" />
-                            <input v-model="sec.table_stand_count" type="number" placeholder="Sehpa Sayısı" class="border rounded p-1 dark:bg-slate-900" />
+                    <div class="border-t pt-2 mt-2 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="block font-bold">Sera Tünel ve Bölüm Detayları</label>
+                            <button type="button" @click="productionLocationForm.sections.push({ id: null, name: '', section_type: 'greenhouse', area_dekar: 0, tunnel_count: 0, table_stand_count: 0 })" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">+ Bölüm Ekle</button>
+                        </div>
+                        <div v-for="(sec, idx) in productionLocationForm.sections" :key="idx" class="flex items-center gap-1 mb-2 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border">
+                            <input v-model="sec.name" type="text" placeholder="Tünel/Bölüm Adı" class="border rounded p-1 dark:bg-slate-900 flex-1" />
+                            <input v-model="sec.area_dekar" type="number" step="0.1" placeholder="Dekar" class="border rounded p-1 dark:bg-slate-900 w-20" />
+                            <input v-model="sec.tunnel_count" type="number" placeholder="Tünel" class="border rounded p-1 dark:bg-slate-900 w-16" />
+                            <input v-model="sec.table_stand_count" type="number" placeholder="Sehpa" class="border rounded p-1 dark:bg-slate-900 w-16" />
+                            <button v-if="productionLocationForm.sections.length > 1" type="button" @click="productionLocationForm.sections.splice(idx, 1)" class="text-rose-500 hover:text-rose-700 font-bold px-1.5">✕</button>
                         </div>
                     </div>
-                    <div class="border-t pt-2 mt-2">
-                        <label class="block font-bold mb-1">Vana Görev Tanımları</label>
-                        <div v-for="(v, idx) in productionLocationForm.valves" :key="idx" class="grid grid-cols-3 gap-1 mb-2 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border">
-                            <input v-model="v.valve_number" type="text" placeholder="Vana No (V-01)" class="border rounded p-1 dark:bg-slate-900" />
-                            <input v-model="v.name" type="text" placeholder="Vana Adı" class="border rounded p-1 dark:bg-slate-900" />
-                            <select v-model="v.duty" class="border rounded p-1 dark:bg-slate-900">
+                    <div class="border-t pt-2 mt-2 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="block font-bold">Vana Görev Tanımları</label>
+                            <button type="button" @click="productionLocationForm.valves.push({ id: null, valve_number: `V-${String(productionLocationForm.valves.length + 1).padStart(2, '0')}`, name: '', duty: 'irrigation', description: '' })" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">+ Vana Ekle</button>
+                        </div>
+                        <div v-for="(v, idx) in productionLocationForm.valves" :key="idx" class="flex items-center gap-1 mb-2 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border">
+                            <input v-model="v.valve_number" type="text" placeholder="Vana No (V-01)" class="border rounded p-1 dark:bg-slate-900 w-24" />
+                            <input v-model="v.name" type="text" placeholder="Vana Adı" class="border rounded p-1 dark:bg-slate-900 flex-1" />
+                            <select v-model="v.duty" class="border rounded p-1 dark:bg-slate-900 w-28">
                                 <option value="irrigation">Sulama</option>
                                 <option value="misting">Sisleme</option>
                                 <option value="fertilization">Gübreleme</option>
                             </select>
+                            <button v-if="productionLocationForm.valves.length > 1" type="button" @click="productionLocationForm.valves.splice(idx, 1)" class="text-rose-500 hover:text-rose-700 font-bold px-1.5">✕</button>
                         </div>
                     </div>
                     <div class="flex justify-end space-x-2 pt-3 border-t">
@@ -1867,11 +1944,28 @@ const currentTabLabel = computed(() => {
                             </label>
                         </div>
                     </div>
-                    <div class="border-t pt-2">
-                        <label class="block font-bold mb-1">Ürün Alt Tipleri & Kalite Sınıfları</label>
-                        <div v-for="(st, idx) in productForm.subtypes" :key="idx" class="grid grid-cols-2 gap-1 mb-2 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border">
-                            <input v-model="st.name" type="text" placeholder="Alt Tip Adı (Örn: 1.Kalite)" class="border rounded p-1 dark:bg-slate-900" />
-                            <input v-model="st.code" type="text" placeholder="Kod (Örn: CLK-1)" class="border rounded p-1 dark:bg-slate-900" />
+                    <div>
+                        <label class="block font-bold mb-1">Geçerli Ölçü Birimleri (Çoklu Seçim)</label>
+                        <div class="grid grid-cols-3 gap-2 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border max-h-32 overflow-y-auto">
+                            <label v-for="u in units" :key="u.id" class="flex items-center space-x-2">
+                                <input type="checkbox" :value="u.id" v-model="productForm.unit_ids" class="rounded text-rose-600" />
+                                <span class="font-bold">{{ u.name }} ({{ u.symbol }})</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1">Açıklama</label>
+                        <textarea v-model="productForm.description" rows="2" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="Ürün açıklaması..."></textarea>
+                    </div>
+                    <div class="border-t pt-2 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="block font-bold">Ürün Alt Tipleri & Kalite Sınıfları</label>
+                            <button type="button" @click="productForm.subtypes.push({ id: null, name: '', code: '' })" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">+ Alt Tip Ekle</button>
+                        </div>
+                        <div v-for="(st, idx) in productForm.subtypes" :key="idx" class="flex items-center gap-1 mb-2 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border">
+                            <input v-model="st.name" type="text" placeholder="Alt Tip Adı (Örn: 1.Kalite)" class="border rounded p-1 dark:bg-slate-900 flex-1" />
+                            <input v-model="st.code" type="text" placeholder="Kod (Örn: CLK-1)" class="border rounded p-1 dark:bg-slate-900 w-32" />
+                            <button v-if="productForm.subtypes.length > 1" type="button" @click="productForm.subtypes.splice(idx, 1)" class="text-rose-500 hover:text-rose-700 font-bold px-1.5">✕</button>
                         </div>
                     </div>
                     <div class="flex justify-end space-x-2 pt-3 border-t">
@@ -1910,6 +2004,10 @@ const currentTabLabel = computed(() => {
                                 <span class="font-bold">{{ u.name }} ({{ u.symbol }})</span>
                             </label>
                         </div>
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1">Açıklama</label>
+                        <textarea v-model="jobTypeForm.description" rows="2" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="İş tanımı hakkında açıklama..."></textarea>
                     </div>
                     <div class="flex justify-end space-x-2 pt-3 border-t">
                         <button type="button" @click="closeModal" class="px-4 py-2 border rounded-xl">İptal</button>
@@ -1993,10 +2091,14 @@ const currentTabLabel = computed(() => {
                             <input v-model="crewLeaderForm.last_name" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required />
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="grid grid-cols-3 gap-2">
                         <div>
                             <label class="block font-bold mb-1">TC Kimlik No</label>
                             <input v-model="crewLeaderForm.identity_number" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" />
+                        </div>
+                        <div>
+                            <label class="block font-bold mb-1">Telefon</label>
+                            <input v-model="crewLeaderForm.phone" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="0532..." />
                         </div>
                         <div>
                             <label class="block font-bold mb-1">Geldiği Yer / Şehir</label>
@@ -2035,6 +2137,12 @@ const currentTabLabel = computed(() => {
                             <label class="block font-bold mb-1">Cari Kodu / Hesap No</label>
                             <input v-model="crewLeaderForm.dia_cari_code" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="CAR-CAVUS-01" />
                         </div>
+                    </div>
+                    <div class="p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" v-model="crewLeaderForm.is_leader_fee_included" class="rounded text-rose-600" />
+                            <span class="font-bold">Çavuş Hakedişi Dahil</span>
+                        </label>
                     </div>
                     <div class="flex justify-end space-x-2 pt-3 border-t">
                         <button type="button" @click="closeModal" class="px-4 py-2 border rounded-xl">İptal</button>
@@ -2079,6 +2187,12 @@ const currentTabLabel = computed(() => {
                     <div>
                         <label class="block font-bold mb-1">İşçi Notları & Değişim Talebi</label>
                         <textarea v-model="workerForm.notes" rows="2" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="Çavuşa iletilecek değişim veya performans notu..."></textarea>
+                    </div>
+                    <div class="p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" v-model="workerForm.is_active" class="rounded text-rose-600" />
+                            <span class="font-bold">Aktif Çalışan İşçi</span>
+                        </label>
                     </div>
                     <div class="flex justify-end space-x-2 pt-3 border-t">
                         <button type="button" @click="closeModal" class="px-4 py-2 border rounded-xl">İptal</button>
@@ -2277,13 +2391,17 @@ const currentTabLabel = computed(() => {
                             <option value="other">Diğer Uygulama Şekli</option>
                         </select>
                     </div>
-                    <div class="border-t pt-2">
-                        <label class="block font-bold mb-1">Reçete İlaç Karışım Listesi (Kaç Litreye Ne Kadar İlaç)</label>
-                        <div v-for="(item, idx) in sprayRecipeForm.items" :key="idx" class="grid grid-cols-4 gap-1.5 bg-slate-50 dark:bg-slate-950 p-2 rounded-xl border mb-2">
-                            <input v-model="item.product_name" type="text" placeholder="İlaç Ürünü / Etken Madde" class="border rounded p-1.5 dark:bg-slate-900" />
-                            <input v-model="item.brand" type="text" placeholder="Marka (Örn: Bayer)" class="border rounded p-1.5 dark:bg-slate-900" />
-                            <input v-model="item.quantity" type="number" step="0.1" placeholder="Miktar (Örn: 250 ml)" class="border rounded p-1.5 dark:bg-slate-900" />
-                            <input v-model="item.notes" type="text" placeholder="Güvenlik Notu / Açıklama" class="border rounded p-1.5 dark:bg-slate-900" />
+                    <div class="border-t pt-2 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="block font-bold">Reçete İlaç Karışım Listesi (Kaç Litreye Ne Kadar İlaç)</label>
+                            <button type="button" @click="sprayRecipeForm.items.push({ product_name: '', brand: '', quantity: 100, unit: 'ml', notes: '' })" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">+ İlaç / Etken Madde Ekle</button>
+                        </div>
+                        <div v-for="(item, idx) in sprayRecipeForm.items" :key="idx" class="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 p-2 rounded-xl border mb-2">
+                            <input v-model="item.product_name" type="text" placeholder="İlaç Ürünü / Etken Madde" class="border rounded p-1.5 dark:bg-slate-900 flex-1" />
+                            <input v-model="item.brand" type="text" placeholder="Marka (Bayer)" class="border rounded p-1.5 dark:bg-slate-900 w-28" />
+                            <input v-model="item.quantity" type="number" step="0.1" placeholder="Miktar" class="border rounded p-1.5 dark:bg-slate-900 w-20" />
+                            <input v-model="item.notes" type="text" placeholder="Güvenlik Notu / Açıklama" class="border rounded p-1.5 dark:bg-slate-900 flex-1" />
+                            <button v-if="sprayRecipeForm.items.length > 1" type="button" @click="sprayRecipeForm.items.splice(idx, 1)" class="text-rose-500 hover:text-rose-700 font-bold px-1.5">✕</button>
                         </div>
                     </div>
                     <div class="flex justify-end space-x-2 pt-3 border-t">
@@ -2319,6 +2437,12 @@ const currentTabLabel = computed(() => {
                             <option :value="true">Evet - Kontrol Esnasında Fotoğraf Alınsın</option>
                             <option :value="false">Hayır - Fotoğrafa Gerek Yok</option>
                         </select>
+                    </div>
+                    <div class="p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" v-model="waterSourceForm.is_active" class="rounded text-blue-600" />
+                            <span class="font-bold">Su Kaynağı Aktif</span>
+                        </label>
                     </div>
                     <div class="flex justify-end space-x-2 pt-3 border-t">
                         <button type="button" @click="closeModal" class="px-4 py-2 border rounded-xl">İptal</button>
@@ -2358,6 +2482,12 @@ const currentTabLabel = computed(() => {
                                 <span class="font-bold">{{ ws.name }} ({{ ws.production_location?.name || 'Genel' }})</span>
                             </label>
                         </div>
+                    </div>
+                    <div class="p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" v-model="filterForm.is_active" class="rounded text-amber-600" />
+                            <span class="font-bold">Filtre Aktif</span>
+                        </label>
                     </div>
                     <div class="flex justify-end space-x-2 pt-3 border-t">
                         <button type="button" @click="closeModal" class="px-4 py-2 border rounded-xl">İptal</button>

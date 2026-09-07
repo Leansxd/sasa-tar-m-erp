@@ -115,10 +115,24 @@ const openFormModal = (type: string, item: any = null) => {
             irrigationForm.schedule_date = item.schedule_date ? item.schedule_date.split('T')[0] : '';
             irrigationForm.run_number = item.run_number || 1;
             irrigationForm.start_time = item.start_time || '09:00';
-            irrigationForm.production_location_id = item.production_location_id;
+            const firstValve = item.valves?.[0];
+            irrigationForm.production_location_id = firstValve?.production_location_id || props.locations[0]?.id || null;
             irrigationForm.is_fertilized = Boolean(item.is_fertilized);
+            irrigationForm.fertilization_recipe_id = item.fertilization_recipe_id || props.fertRecipes[0]?.id || null;
             irrigationForm.tank_stage_note = item.tank_stage_note || '';
             irrigationForm.notes = item.notes || '';
+            if (item.valves && item.valves.length > 0) {
+                irrigationForm.valves = item.valves.map((iv: any) => ({
+                    location_valve_id: iv.location_valve_id,
+                    production_location_id: iv.production_location_id,
+                    valve_id: iv.location_valve_id,
+                    valve_number: iv.valve?.valve_number || 'V',
+                    name: `${iv.location?.name || ''} > ${iv.valve?.name || 'Vana'}`,
+                    duration_minutes: iv.duration_minutes || 10,
+                }));
+            } else {
+                loadIrrigationValvesForLocation();
+            }
         } else {
             irrigationForm.id = null;
             irrigationForm.schedule_date = new Date().toISOString().split('T')[0];
@@ -126,6 +140,7 @@ const openFormModal = (type: string, item: any = null) => {
             irrigationForm.start_time = '09:00';
             irrigationForm.production_location_id = props.locations[0]?.id || null;
             irrigationForm.is_fertilized = false;
+            irrigationForm.fertilization_recipe_id = props.fertRecipes[0]?.id || null;
             irrigationForm.tank_stage_note = '';
             irrigationForm.notes = '';
             loadIrrigationValvesForLocation();
@@ -136,13 +151,17 @@ const openFormModal = (type: string, item: any = null) => {
             sprayAppForm.application_date = item.application_date ? item.application_date.split('T')[0] : '';
             sprayAppForm.spraying_recipe_id = item.spraying_recipe_id;
             sprayAppForm.purpose = item.purpose || '';
+            sprayAppForm.applied_by_id = item.applied_by_id || props.personnels[0]?.id || null;
             sprayAppForm.covered_area_description = item.covered_area_description || '';
             sprayAppForm.is_tank_finished = Boolean(item.is_tank_finished);
+            sprayAppForm.batch_code = item.batch_code || '';
+            sprayAppForm.notes = item.notes || '';
         } else {
             sprayAppForm.id = null;
             sprayAppForm.application_date = new Date().toISOString().split('T')[0];
             sprayAppForm.spraying_recipe_id = props.sprayRecipes[0]?.id || null;
             sprayAppForm.purpose = '';
+            sprayAppForm.applied_by_id = props.personnels[0]?.id || null;
             sprayAppForm.covered_area_description = '';
             sprayAppForm.is_tank_finished = false;
             sprayAppForm.batch_code = '';
@@ -152,8 +171,26 @@ const openFormModal = (type: string, item: any = null) => {
         if (item) {
             waterAnalysisForm.id = item.id;
             waterAnalysisForm.water_source_id = item.water_source_id;
+            waterAnalysisForm.analysis_date = item.analysis_date ? (item.analysis_date.includes('T') ? item.analysis_date.split('T')[0] : item.analysis_date) : new Date().toISOString().split('T')[0];
             waterAnalysisForm.ph_level = item.ph_level;
             waterAnalysisForm.ec_level = item.ec_level;
+            const chem = item.chemical_details || {};
+            waterAnalysisForm.chemical_details = {
+                lab_name: chem.lab_name || '',
+                report_no: chem.report_no || '',
+                calcium: chem.calcium ?? '',
+                magnesium: chem.magnesium ?? '',
+                sodium: chem.sodium ?? '',
+                potassium: chem.potassium ?? '',
+                bicarbonate: chem.bicarbonate ?? '',
+                sulfate: chem.sulfate ?? '',
+                chloride: chem.chloride ?? '',
+                nitrate: chem.nitrate ?? '',
+                hardness: chem.hardness ?? '',
+                sar: chem.sar ?? '',
+                tds: chem.tds ?? '',
+                suitability: chem.suitability || 'Sulamaya Uygun (A Sınıfı)',
+            };
             waterAnalysisForm.notes = item.notes || '';
         } else {
             waterAnalysisForm.id = null;
@@ -161,6 +198,22 @@ const openFormModal = (type: string, item: any = null) => {
             waterAnalysisForm.analysis_date = new Date().toISOString().split('T')[0];
             waterAnalysisForm.ph_level = '' as any;
             waterAnalysisForm.ec_level = '' as any;
+            waterAnalysisForm.chemical_details = {
+                lab_name: '',
+                report_no: '',
+                calcium: '' as any,
+                magnesium: '' as any,
+                sodium: '' as any,
+                potassium: '' as any,
+                bicarbonate: '' as any,
+                sulfate: '' as any,
+                chloride: '' as any,
+                nitrate: '' as any,
+                hardness: '' as any,
+                sar: '' as any,
+                tds: '' as any,
+                suitability: 'Sulamaya Uygun (A Sınıfı)',
+            };
             waterAnalysisForm.notes = '';
         }
     } else if (type === 'raw_water') {
@@ -171,9 +224,16 @@ const openFormModal = (type: string, item: any = null) => {
             rawWaterForm.ec_val = item.ec_val;
             rawWaterForm.ph_val = item.ph_val;
             rawWaterForm.pump_status = item.pump_status || 'open';
+            rawWaterForm.pump_fault_note = item.pump_fault_note || '';
+            rawWaterForm.active_start_date = item.active_start_date ? item.active_start_date.split('T')[0] : '';
+            rawWaterForm.passive_start_date = item.passive_start_date ? item.passive_start_date.split('T')[0] : '';
+            rawWaterForm.source_switch_reason = item.source_switch_reason || '';
             rawWaterForm.water_tank_level = item.water_tank_level || 'full';
+            rawWaterForm.water_tank_note = item.water_tank_note || '';
             rawWaterForm.chlorine_tank_level = item.chlorine_tank_level || 'full';
             rawWaterForm.dosing_pump_mode = item.dosing_pump_mode || 'auto';
+            rawWaterForm.dosing_pump_manual_val = item.dosing_pump_manual_val || '';
+            rawWaterForm.dosing_pump_fault_note = item.dosing_pump_fault_note || '';
             rawWaterForm.is_filter_cleaned = Boolean(item.is_filter_cleaned);
         } else {
             rawWaterForm.id = null;
@@ -182,23 +242,33 @@ const openFormModal = (type: string, item: any = null) => {
             rawWaterForm.ec_val = '' as any;
             rawWaterForm.ph_val = '' as any;
             rawWaterForm.pump_status = 'open';
+            rawWaterForm.pump_fault_note = '';
+            rawWaterForm.active_start_date = new Date().toISOString().split('T')[0];
+            rawWaterForm.passive_start_date = '';
+            rawWaterForm.source_switch_reason = '';
             rawWaterForm.water_tank_level = 'full';
+            rawWaterForm.water_tank_note = '';
             rawWaterForm.chlorine_tank_level = 'full';
             rawWaterForm.dosing_pump_mode = 'auto';
+            rawWaterForm.dosing_pump_manual_val = '';
+            rawWaterForm.dosing_pump_fault_note = '';
             rawWaterForm.is_filter_cleaned = false;
         }
     } else if (type === 'purification') {
         if (item) {
             purificationForm.id = item.id;
             purificationForm.water_source_id = item.water_source_id;
+            purificationForm.control_date = item.control_date ? item.control_date.split('T')[0] : '';
             purificationForm.inlet_pressure_bar = item.inlet_pressure_bar;
             purificationForm.outlet_pressure_bar = item.outlet_pressure_bar;
+            purificationForm.max_threshold_bar = item.max_threshold_bar ?? 1.5;
         } else {
             purificationForm.id = null;
             purificationForm.water_source_id = props.waterSources[0]?.id || null;
             purificationForm.control_date = new Date().toISOString().split('T')[0];
             purificationForm.inlet_pressure_bar = '' as any;
             purificationForm.outlet_pressure_bar = '' as any;
+            purificationForm.max_threshold_bar = 1.5;
         }
     } else if (type === 'work_plan') {
         if (item) {
@@ -270,8 +340,69 @@ const openFormModal = (type: string, item: any = null) => {
         } else {
             workerForm.reset();
             workerForm.id = null;
-            // Eger onceden belirlenmis bir crew_leader_id varsa korunacak. (UI tarafindan atanacak)
         }
+    } else if (type === 'shipment') {
+        if (!item) {
+            shipmentForm.reset();
+            shipmentForm.customer_order_id = null;
+            shipmentForm.trading_party_id = props.tradingParties[0]?.id || null;
+            shipmentForm.product_id = props.products[0]?.id || null;
+            shipmentForm.packaging_definition_id = props.packagings[0]?.id || null;
+            shipmentForm.shipment_date = new Date().toISOString().split('T')[0];
+            shipmentForm.quantity = 100;
+            shipmentForm.unit_price = 50;
+            shipmentForm.delivery_type_id = props.deliveryTypes[0]?.id || null;
+            shipmentForm.vehicle_plate = '';
+            shipmentForm.driver_name = '';
+            shipmentForm.driver_phone = '';
+            shipmentForm.dia_waybill_code = `IRS-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+            shipmentForm.status = 'on_the_way';
+            shipmentForm.notes = '';
+        }
+    } else if (type === 'order') {
+        orderForm.reset();
+        orderForm.trading_party_id = props.tradingParties[0]?.id || null;
+        orderForm.order_date = new Date().toISOString().split('T')[0];
+        orderForm.requested_delivery_date = '';
+        orderForm.contact_person = '';
+        orderForm.total_amount = 0;
+        orderForm.notes = '';
+        orderForm.items = [
+            { product_id: props.products[0]?.id || null, packaging_definition_id: props.packagings[0]?.id || null, quantity: 100, unit_price: 50 }
+        ];
+    } else if (type === 'daily_sheet') {
+        dailyWorkSheetForm.work_date = new Date().toISOString().split('T')[0];
+        dailyWorkSheetForm.company_id = props.companies[0]?.id || null;
+        dailyWorkSheetForm.production_location_id = props.locations[0]?.id || null;
+        dailyWorkSheetForm.has_external_workers = true;
+        dailyWorkSheetForm.has_internal_workers = true;
+        dailyWorkSheetForm.storage_destination = 'direct_sale';
+        dailyWorkSheetForm.notes = '';
+        const clId = props.crewLeaders[0]?.id || null;
+        const regCount = getSelectedCrewLeaderRegisteredCount(clId);
+        const minCar = props.crewLeaders[0]?.min_car_requirement || 2;
+        dailyWorkSheetForm.crew_leaders = [
+            { crew_leader_id: clId, worker_count: regCount, extra_worker_count: 0, car_count: minCar, overtime_hours: 0, extra_wage_per_worker: 0 }
+        ];
+        dailyWorkSheetForm.assignments = [
+            { crew_leader_id: clId, worker_id: null, personnel_id: null, job_type_id: props.jobTypes[0]?.id || null, start_time: '08:00', end_time: '17:00', break_minutes: 60 }
+        ];
+        dailyWorkSheetForm.harvest_items = [
+            {
+                product_id: props.products[0]?.id || null,
+                product_subtype_id: props.products[0]?.subtypes?.[0]?.id || null,
+                packaging_definition_id: props.packagings[0]?.id || null,
+                package_count: 50,
+                quantity: 500,
+                unit_symbol: 'kg',
+                unit_price: 90,
+                crop_type: 'strawberry',
+                banana_bunch_count: 0,
+                farm_scale_kg: 0,
+                merchant_scale_1st_kg: 0,
+                merchant_scale_2nd_kg: 0,
+            }
+        ];
     }
     showModal.value = true;
 };
@@ -782,18 +913,15 @@ const loadIrrigationValvesForLocation = () => {
     const loc = props.locations.find((l: any) => l.id === irrigationForm.production_location_id);
     if (loc && loc.valves && loc.valves.length > 0) {
         irrigationForm.valves = loc.valves.map((v: any) => ({
+            location_valve_id: v.id,
+            production_location_id: loc.id,
             valve_id: v.id,
             valve_number: v.valve_number,
             name: `${loc.name} > ${v.name} (${v.duty === 'misting' ? 'Sisleme' : 'Sulama'})`,
-            duration_minutes: '',
+            duration_minutes: 10,
         }));
     } else {
-        irrigationForm.valves = [
-            { valve_id: null, valve_number: 'V-01', name: 'Sera 1 > Vana 1 (Sulama)', duration_minutes: '' },
-            { valve_id: null, valve_number: 'V-02', name: 'Sera 1 > Vana 2 (Sulama)', duration_minutes: '' },
-            { valve_id: null, valve_number: 'V-03', name: 'Sera 1 > Vana 3 (Sisleme)', duration_minutes: '' },
-            { valve_id: null, valve_number: 'V-04', name: 'Sera 1 > Vana 4 (Sisleme)', duration_minutes: '' }
-        ];
+        irrigationForm.valves = [];
     }
 };
 
@@ -821,6 +949,22 @@ const waterAnalysisForm = useForm({
     analysis_date: new Date().toISOString().split('T')[0],
     ph_level: '' as any,
     ec_level: '' as any,
+    chemical_details: {
+        lab_name: '',
+        report_no: '',
+        calcium: '' as any,
+        magnesium: '' as any,
+        sodium: '' as any,
+        potassium: '' as any,
+        bicarbonate: '' as any,
+        sulfate: '' as any,
+        chloride: '' as any,
+        nitrate: '' as any,
+        hardness: '' as any,
+        sar: '' as any,
+        tds: '' as any,
+        suitability: 'Sulamaya Uygun (A Sınıfı)',
+    },
     notes: '',
 });
 
@@ -1118,7 +1262,10 @@ const submitWaterAnalysis = () => {
 };
 
 const submitRawWater = () => {
-    rawWaterForm.post(route('agriculture.raw-water-controls.store'), { onSuccess: () => showModal.value = false });
+    rawWaterForm.post(route('agriculture.raw-water-controls.store'), {
+        forceFormData: true,
+        onSuccess: () => showModal.value = false
+    });
 };
 
 const submitPurification = () => {
@@ -1265,11 +1412,11 @@ const submitMarketPrice = () => {
 };
 
 const submitCrewLeader = () => {
-    crewLeaderForm.post(route('crew-leaders.store'), { onSuccess: () => showModal.value = false });
+    crewLeaderForm.post(route('definitions.crew-leaders.store'), { onSuccess: () => showModal.value = false });
 };
 
 const submitWorker = () => {
-    workerForm.post(route('workers.store'), { onSuccess: () => showModal.value = false });
+    workerForm.post(route('definitions.workers.store'), { onSuccess: () => showModal.value = false });
 };
 
 const submitDailyWorkSheet = () => {
@@ -2018,13 +2165,20 @@ const handleApproval = (id: number, action: string) => {
                                     {{ rw.control_date ? (rw.control_date.includes('T') ? rw.control_date.split('T')[0].split('-').reverse().join('.') : rw.control_date) : '01.09.2026' }}
                                 </td>
                                 <td class="p-2.5 font-semibold text-slate-700 dark:text-slate-300">
-                                    {{ rw.water_tank_level || 'Tam Dolu (%100)' }}
+                                    <div>
+                                        <span>{{ rw.water_tank_level === 'full' ? 'Dolu (%100)' : (rw.water_tank_level === 'half_plus' ? 'Yarıdan Fazla (%75)' : (rw.water_tank_level === 'half_minus' ? 'Yarıdan Az (%35)' : 'Boş (%0)')) }}</span>
+                                        <div v-if="rw.water_tank_note" class="text-[10px] text-slate-400 font-normal truncate max-w-[130px]">{{ rw.water_tank_note }}</div>
+                                    </div>
                                 </td>
                                 <td class="p-2.5 text-slate-700 dark:text-slate-300">
-                                    {{ rw.chlorine_tank_level || 'Seviye Yeterli' }}
+                                    {{ rw.chlorine_tank_level === 'full' ? 'Dolu (%100)' : (rw.chlorine_tank_level === 'half_plus' ? 'Yarıdan Fazla (%75)' : (rw.chlorine_tank_level === 'half_minus' ? 'Yarıdan Az (%35)' : 'Boş (%0)')) }}
                                 </td>
                                 <td class="p-2.5 font-semibold text-slate-700 dark:text-slate-300">
-                                    {{ rw.dosing_pump_mode === 'auto' ? 'Otomatik Dozaj' : 'Manuel Mod' }}
+                                    <div>
+                                        <span>{{ rw.dosing_pump_mode === 'auto' ? 'Otomatik Dozaj' : (rw.dosing_pump_mode === 'manual' ? 'Manuel Mod' : 'Arızalı') }}</span>
+                                        <div v-if="rw.dosing_pump_mode === 'manual' && rw.dosing_pump_manual_val" class="text-[10px] text-amber-500 font-mono">{{ rw.dosing_pump_manual_val }}</div>
+                                        <div v-if="rw.dosing_pump_mode === 'faulty' && rw.dosing_pump_fault_note" class="text-[10px] text-rose-500 font-mono">{{ rw.dosing_pump_fault_note }}</div>
+                                    </div>
                                 </td>
                                 <td class="p-2.5 font-mono text-slate-800 dark:text-slate-200">
                                     EC: {{ rw.ec_val || '1.2' }} | pH: {{ rw.ph_val || '6.8' }}
@@ -2035,9 +2189,14 @@ const handleApproval = (id: number, action: string) => {
                                     </span>
                                 </td>
                                 <td class="p-2.5 text-center">
-                                    <span :class="rw.pump_status === 'open' ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800/80' : 'bg-rose-950/80 text-rose-400 border-rose-800/80'" class="px-2 py-0.5 rounded text-[10px] font-bold border inline-block">
-                                        {{ rw.pump_status === 'open' ? 'Açık (Faal)' : 'Kapalı / Arızalı' }}
-                                    </span>
+                                    <div class="flex flex-col items-center gap-0.5">
+                                        <span :class="rw.pump_status === 'open' ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800/80' : (rw.pump_status === 'closed' ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-rose-950/80 text-rose-400 border-rose-800/80')" class="px-2 py-0.5 rounded text-[10px] font-bold border inline-block">
+                                            {{ rw.pump_status === 'open' ? 'Açık (Faal)' : (rw.pump_status === 'closed' ? 'Kapalı' : 'Arızalı') }}
+                                        </span>
+                                        <span v-if="rw.pump_status === 'faulty' && rw.pump_fault_note" class="text-[9px] text-rose-400 font-medium truncate max-w-[100px]" :title="rw.pump_fault_note">
+                                            {{ rw.pump_fault_note }}
+                                        </span>
+                                    </div>
                                 </td>
                                 <td class="p-2.5 text-right whitespace-nowrap">
                                     <div class="flex items-center justify-end gap-2">
@@ -2789,7 +2948,7 @@ const handleApproval = (id: number, action: string) => {
                                             <button @click="openFormModal('crew_leader', cl)" class="text-slate-700 dark:text-slate-200 font-bold hover:underline">
                                                 Düzenle
                                             </button>
-                                            <button @click="deleteItem('crew-leaders.destroy', cl.id, 'çavuş')" class="text-rose-600 dark:text-rose-400 font-bold hover:underline">
+                                            <button @click="deleteItem('definitions.crew-leaders.destroy', cl.id, 'çavuş')" class="text-rose-600 dark:text-rose-400 font-bold hover:underline">
                                                 Sil
                                             </button>
                                         </div>
@@ -2824,7 +2983,7 @@ const handleApproval = (id: number, action: string) => {
                                                         <td class="p-2 text-right">
                                                             <div class="flex items-center justify-end gap-2">
                                                                 <button @click="openFormModal('worker', w)" class="text-slate-600 hover:text-slate-900 dark:hover:text-slate-100 hover:underline">Düzenle</button>
-                                                                <button @click="deleteItem('workers.destroy', w.id, 'işçi')" class="text-rose-500 hover:text-rose-700 hover:underline">Sil</button>
+                                                                <button @click="deleteItem('definitions.workers.destroy', w.id, 'işçi')" class="text-rose-500 hover:text-rose-700 hover:underline">Sil</button>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -2913,13 +3072,14 @@ const handleApproval = (id: number, action: string) => {
                         </h2>
                         <p class="text-[11px] text-slate-500 dark:text-slate-400">Ürün bazında toplanan tonajlar, 1. ve 2. kantar tartımları, ambalaj dökümleri ve ciro analizleri</p>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <button @click="printPage()" class="bg-slate-900 hover:bg-slate-800 dark:bg-rose-600 dark:hover:bg-rose-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-xs cursor-pointer">
+                    <div class="flex items-center gap-2 no-print">
+                        <button @click="printPage('hasat-report-content')" class="bg-slate-900 hover:bg-slate-800 dark:bg-rose-600 dark:hover:bg-rose-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-xs cursor-pointer">
                             Raporu Yazdır
                         </button>
                     </div>
                 </div>
 
+                <div id="hasat-report-content" class="space-y-4">
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-2 p-2.5 bg-slate-50 dark:bg-slate-950/60 rounded-lg border border-slate-200/80 dark:border-slate-800/80 text-xs">
                     <div class="px-2 border-r border-slate-200 dark:border-slate-800">
                         <span class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Toplam Hasat Tonajı</span>
@@ -3005,6 +3165,7 @@ const handleApproval = (id: number, action: string) => {
                             </tbody>
                         </table>
                     </div>
+                </div>
                 </div>
             </div>
 
@@ -3092,13 +3253,14 @@ const handleApproval = (id: number, action: string) => {
                         </h2>
                         <p class="text-[11px] text-slate-500 dark:text-slate-400">Çavuş bazında gruplanmış kümülatif hakediş dökümleri, yevmiyeler, araç/ulaşım giderleri ve kg başı maliyet</p>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <button @click="printPage()" class="bg-slate-900 hover:bg-slate-800 dark:bg-rose-600 dark:hover:bg-rose-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-xs cursor-pointer">
+                    <div class="flex items-center gap-2 no-print">
+                        <button @click="printPage('isci-maliyet-report-content')" class="bg-slate-900 hover:bg-slate-800 dark:bg-rose-600 dark:hover:bg-rose-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-xs cursor-pointer">
                             Raporu Yazdır
                         </button>
                     </div>
                 </div>
 
+                <div id="isci-maliyet-report-content" class="space-y-4">
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-2 p-2.5 bg-slate-50 dark:bg-slate-950/60 rounded-lg border border-slate-200/80 dark:border-slate-800/80 text-xs">
                     <div class="px-2 border-r border-slate-200 dark:border-slate-800">
                         <span class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Toplam İşçilik & Çavuş Hakedişi</span>
@@ -3154,11 +3316,12 @@ const handleApproval = (id: number, action: string) => {
                         </table>
                     </div>
                 </div>
+                </div>
             </div>
         </div>
 
         <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-            <div :class="['daily_sheet', 'order', 'order_edit', 'shipment', 'work_plan', 'spraying', 'sulama', 'raw_water'].includes(modalType) ? 'max-w-4xl' : 'max-w-xl'" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full p-7 max-h-[90vh] overflow-y-auto">
+            <div :class="['daily_sheet', 'order', 'order_edit', 'shipment', 'work_plan', 'spraying', 'sulama', 'raw_water', 'water_analysis'].includes(modalType) ? 'max-w-4xl' : 'max-w-xl'" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full p-7 max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-5 pb-3 border-b border-slate-100 dark:border-slate-800">
                     <div>
                         <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">
@@ -3244,7 +3407,7 @@ const handleApproval = (id: number, action: string) => {
                     <div class="flex justify-end space-x-2 pt-3 border-t">
                         <button type="button" @click="showModal = false" class="px-4 py-2 border rounded-xl font-bold">İptal</button>
                         <button type="submit" :disabled="workPlanForm.processing" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-xs transition">
-                            Güncellemeyi Kaydet
+                            {{ workPlanForm.id ? 'Güncellemeyi Kaydet' : 'İş Planı Oluştur' }}
                         </button>
                     </div>
                 </form>
@@ -3380,24 +3543,50 @@ const handleApproval = (id: number, action: string) => {
                 </form>
 
                 <form v-if="modalType === 'spray_app'" @submit.prevent="submitSprayApp" class="space-y-4 text-xs">
-                    <div>
-                        <label class="block font-bold mb-1">İlaç Reçetesi</label>
-                        <select v-model="sprayAppForm.spraying_recipe_id" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required>
-                            <option v-for="sr in sprayRecipes" :key="sr.id" :value="sr.id">{{ sr.name }}</option>
-                        </select>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-bold mb-1">Uygulama Tarihi</label>
+                            <input v-model="sprayAppForm.application_date" type="date" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required />
+                        </div>
+                        <div>
+                            <label class="block font-bold mb-1">İlaç Reçetesi</label>
+                            <select v-model="sprayAppForm.spraying_recipe_id" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required>
+                                <option v-for="sr in sprayRecipes" :key="sr.id" :value="sr.id">{{ sr.name }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-bold mb-1">Kullanım Amacı</label>
+                            <input v-model="sprayAppForm.purpose" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required />
+                        </div>
+                        <div>
+                            <label class="block font-bold mb-1">Parti / Şarj No</label>
+                            <input v-model="sprayAppForm.batch_code" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-mono" placeholder="Örn: BATCH-2026-01" />
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-bold mb-1">Uygulayan Personel</label>
+                            <select v-model="sprayAppForm.applied_by_id" class="w-full border rounded-xl p-2.5 dark:bg-slate-950">
+                                <option :value="null">Seçilmedi</option>
+                                <option v-for="p in personnels" :key="p.id" :value="p.id">{{ p.first_name }} {{ p.last_name }}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold mb-1">Kaplanan Alan (örn: Sera 1 - 4. Tünel)</label>
+                            <input v-model="sprayAppForm.covered_area_description" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required />
+                        </div>
                     </div>
                     <div>
-                        <label class="block font-bold mb-1">Kullanım Amacı</label>
-                        <input v-model="sprayAppForm.purpose" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required />
+                        <label class="block font-bold mb-1">Uygulama Notu</label>
+                        <textarea v-model="sprayAppForm.notes" rows="2" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="Hava şartları, rüzgar durumu veya notlar..."></textarea>
                     </div>
-                    <div>
-                        <label class="block font-bold mb-1">Kaplanan Alan (örn: Sera 1 - 4. Tünel)</label>
-                        <input v-model="sprayAppForm.covered_area_description" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required />
-                    </div>
-                    <div>
-                        <label class="block font-bold mb-1">Hazırlanan İlaç Bitti mi?</label>
-                        <input v-model="sprayAppForm.is_tank_finished" type="checkbox" class="rounded text-rose-600" />
-                        <span class="ml-2 font-bold">Tank Bitti (Bitmediyse ertesi gün devam eder)</span>
+                    <div class="p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input v-model="sprayAppForm.is_tank_finished" type="checkbox" class="rounded text-rose-600" />
+                            <span class="font-bold">Tank Bitti (Bitmediyse ertesi gün devam eder)</span>
+                        </label>
                     </div>
                     <div class="flex justify-end space-x-2 pt-3 border-t">
                         <button type="button" @click="showModal = false" class="px-4 py-2 border rounded-xl">İptal</button>
@@ -3406,25 +3595,125 @@ const handleApproval = (id: number, action: string) => {
                 </form>
 
                 <form v-if="modalType === 'water_analysis'" @submit.prevent="submitWaterAnalysis" class="space-y-4 text-xs">
-                    <div>
-                        <label class="block font-bold mb-1">Su Kaynağı</label>
-                        <select v-model="waterAnalysisForm.water_source_id" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required>
-                            <option v-for="ws in waterSources" :key="ws.id" :value="ws.id">{{ ws.name }}</option>
-                        </select>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block font-bold mb-1">pH Seviyesi</label>
-                            <input v-model="waterAnalysisForm.ph_level" type="number" step="0.1" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required />
+                    <!-- BÖLÜM 1: PROTOKOL VE GENEL BİLGİLER -->
+                    <div class="p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                        <div class="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-cyan-500"></span> 1. Protokol ve Numune Bilgileri
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                            <div class="md:col-span-2">
+                                <label class="block font-bold mb-1">Su Kaynağı / Sondaj *</label>
+                                <select v-model="waterAnalysisForm.water_source_id" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-bold" required>
+                                    <option v-for="ws in waterSources" :key="ws.id" :value="ws.id">{{ ws.name }}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">Numune / Analiz Tarihi *</label>
+                                <input v-model="waterAnalysisForm.analysis_date" type="date" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-mono font-bold" required />
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">Rapor / Belge No</label>
+                                <input v-model="waterAnalysisForm.chemical_details.report_no" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-mono" placeholder="Örn: LAB-2026-084" />
+                            </div>
                         </div>
                         <div>
-                            <label class="block font-bold mb-1">EC Seviyesi (mS/cm)</label>
-                            <input v-model="waterAnalysisForm.ec_level" type="number" step="0.1" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required />
+                            <label class="block font-bold mb-1">Analizi Yapan Akredite Laboratuvar / Kurum</label>
+                            <input v-model="waterAnalysisForm.chemical_details.lab_name" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="Örn: Mersin İl Tarım ve Orman Lab / SASA Merkez Araştırma Laboratuvarı" />
                         </div>
                     </div>
+
+                    <!-- BÖLÜM 2: TEMEL FİZİKSEL VE KİMYASAL PARAMETRELER -->
+                    <div class="p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                        <div class="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 2. Temel Fizikokimyasal Değerler
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                            <div>
+                                <label class="block font-bold mb-1 text-rose-600 dark:text-rose-400">pH Seviyesi *</label>
+                                <input v-model="waterAnalysisForm.ph_level" type="number" step="0.01" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-bold font-mono text-rose-600 dark:text-rose-400" required placeholder="6.5" />
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1 text-cyan-600 dark:text-cyan-400">EC İletkenlik (mS/cm) *</label>
+                                <input v-model="waterAnalysisForm.ec_level" type="number" step="0.01" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-bold font-mono text-cyan-600 dark:text-cyan-400" required placeholder="1.40" />
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">TDS (ppm / mg/L)</label>
+                                <input v-model="waterAnalysisForm.chemical_details.tds" type="number" step="1" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-mono" placeholder="Örn: 890" />
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">Toplam Sertlik (°F)</label>
+                                <input v-model="waterAnalysisForm.chemical_details.hardness" type="number" step="0.1" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-mono" placeholder="Örn: 24.5" />
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">SAR (Sodyum Oranı)</label>
+                                <input v-model="waterAnalysisForm.chemical_details.sar" type="number" step="0.01" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-mono" placeholder="Örn: 1.85" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BÖLÜM 3: MİNERALLER VE İYONLAR (KATYONLAR & ANYONLAR) -->
+                    <div class="p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                        <div class="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 3. Anyon ve Katyon Konsantrasyonları (mg/L veya ppm)
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div>
+                                <label class="block font-semibold mb-1">Kalsiyum (Ca²⁺) - mg/L</label>
+                                <input v-model="waterAnalysisForm.chemical_details.calcium" type="number" step="0.1" class="w-full border rounded-xl p-2 dark:bg-slate-950 font-mono" placeholder="Örn: 95.0" />
+                            </div>
+                            <div>
+                                <label class="block font-semibold mb-1">Magnezyum (Mg²⁺) - mg/L</label>
+                                <input v-model="waterAnalysisForm.chemical_details.magnesium" type="number" step="0.1" class="w-full border rounded-xl p-2 dark:bg-slate-950 font-mono" placeholder="Örn: 28.5" />
+                            </div>
+                            <div>
+                                <label class="block font-semibold mb-1">Sodyum (Na⁺) - mg/L</label>
+                                <input v-model="waterAnalysisForm.chemical_details.sodium" type="number" step="0.1" class="w-full border rounded-xl p-2 dark:bg-slate-950 font-mono" placeholder="Örn: 35.0" />
+                            </div>
+                            <div>
+                                <label class="block font-semibold mb-1">Potasyum (K⁺) - mg/L</label>
+                                <input v-model="waterAnalysisForm.chemical_details.potassium" type="number" step="0.1" class="w-full border rounded-xl p-2 dark:bg-slate-950 font-mono" placeholder="Örn: 4.2" />
+                            </div>
+                            <div>
+                                <label class="block font-semibold mb-1">Bikarbonat (HCO₃⁻) - mg/L</label>
+                                <input v-model="waterAnalysisForm.chemical_details.bicarbonate" type="number" step="0.1" class="w-full border rounded-xl p-2 dark:bg-slate-950 font-mono" placeholder="Örn: 220.0" />
+                            </div>
+                            <div>
+                                <label class="block font-semibold mb-1">Sülfat (SO₄²⁻) - mg/L</label>
+                                <input v-model="waterAnalysisForm.chemical_details.sulfate" type="number" step="0.1" class="w-full border rounded-xl p-2 dark:bg-slate-950 font-mono" placeholder="Örn: 65.0" />
+                            </div>
+                            <div>
+                                <label class="block font-semibold mb-1">Klorür (Cl⁻) - mg/L</label>
+                                <input v-model="waterAnalysisForm.chemical_details.chloride" type="number" step="0.1" class="w-full border rounded-xl p-2 dark:bg-slate-950 font-mono" placeholder="Örn: 42.0" />
+                            </div>
+                            <div>
+                                <label class="block font-semibold mb-1">Nitrat (NO₃-N) - mg/L</label>
+                                <input v-model="waterAnalysisForm.chemical_details.nitrate" type="number" step="0.1" class="w-full border rounded-xl p-2 dark:bg-slate-950 font-mono" placeholder="Örn: 12.0" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BÖLÜM 4: DEĞERLENDİRME VE NOTLAR -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block font-bold mb-1">Tarımsal Sulama Uygunluk Sınıfı</label>
+                            <select v-model="waterAnalysisForm.chemical_details.suitability" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-bold text-emerald-600 dark:text-emerald-400">
+                                <option value="Sulamaya Uygun (A Sınıfı)">✓ Sulamaya Uygun (A Sınıfı)</option>
+                                <option value="Şartlı Uygun (B Sınıfı - Asit Desteği Gerekli)">⚠️ Şartlı Uygun (B Sınıfı - Asit Gerekli)</option>
+                                <option value="Yüksek Klor / Sodyum Riski">⚠️ Yüksek Klor / Sodyum Riski</option>
+                                <option value="Yüksek EC / Tuzluluk (Ters Osmoz Gerekli)">✕ Yüksek Tuzluluk (Arıtma Gerekli)</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block font-bold mb-1">Laboratuvar Açıklaması ve Uzman Notu</label>
+                            <input v-model="waterAnalysisForm.notes" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="Örn: Su analiz değerleri topraksız çilek beslemesine uygundur. Bikarbonat tamponlaması için nitrik asit uygulanması önerilir." />
+                        </div>
+                    </div>
+
                     <div class="flex justify-end space-x-2 pt-3 border-t">
-                        <button type="button" @click="showModal = false" class="px-4 py-2 border rounded-xl">İptal</button>
-                        <button type="submit" class="px-4 py-2 bg-rose-600 text-white font-bold rounded-xl">Analiz Kaydet</button>
+                        <button type="button" @click="showModal = false" class="px-4 py-2 border rounded-xl font-bold">İptal</button>
+                        <button type="submit" class="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl transition">
+                            {{ waterAnalysisForm.id ? 'Değişiklikleri Kaydet' : 'Analiz Raporunu Kaydet' }}
+                        </button>
                     </div>
                 </form>
 
@@ -3432,7 +3721,7 @@ const handleApproval = (id: number, action: string) => {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-bold mb-1">Kontrol Tarihi</label>
-                            <input v-model="rawWaterForm.control_date" type="date" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required />
+                            <input v-model="rawWaterForm.control_date" type="date" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-bold" required />
                         </div>
                         <div>
                             <label class="block font-bold mb-1">Su Kaynağı</label>
@@ -3456,65 +3745,119 @@ const handleApproval = (id: number, action: string) => {
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                            <label class="block font-bold mb-1">Pompa Çalışma Durumu</label>
-                            <select v-model="rawWaterForm.pump_status" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-bold">
-                                <option value="open">Açık (Faal)</option>
-                                <option value="closed">Kapalı</option>
-                                <option value="faulty">Arızalı</option>
-                            </select>
+                    <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                        <h4 class="font-black text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">Pompa ve Filtre Operasyonu</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block font-bold mb-1">Pompa Çalışma Durumu</label>
+                                <select v-model="rawWaterForm.pump_status" class="w-full border rounded-xl p-2.5 dark:bg-slate-900 font-bold">
+                                    <option value="open">Açık (Faal)</option>
+                                    <option value="closed">Kapalı</option>
+                                    <option value="faulty">Arızalı / Bakımda</option>
+                                </select>
+                            </div>
+                            <div v-if="rawWaterForm.pump_status === 'faulty'">
+                                <label class="block font-bold mb-1 text-rose-600 dark:text-rose-400">Pompa Arıza Detayı</label>
+                                <input v-model="rawWaterForm.pump_fault_note" type="text" class="w-full border border-rose-300 dark:border-rose-800 rounded-xl p-2.5 dark:bg-slate-900" placeholder="Örn: Motor sargı aşırı ısınma..." />
+                            </div>
                         </div>
-                        <div>
-                            <label class="block font-bold mb-1">Ham Su Deposu Seviyesi</label>
-                            <select v-model="rawWaterForm.water_tank_level" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-bold">
-                                <option value="full">Dolu (%100)</option>
-                                <option value="half_plus">Yarıdan Fazla (%75)</option>
-                                <option value="half_minus">Yarıdan Az (%35)</option>
-                                <option value="empty">Boş (%0)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block font-bold mb-1">Klor Tankı Seviyesi</label>
-                            <select v-model="rawWaterForm.chlorine_tank_level" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-bold">
-                                <option value="full">Dolu (%100)</option>
-                                <option value="half_plus">Yarıdan Fazla (%75)</option>
-                                <option value="half_minus">Yarıdan Az (%35)</option>
-                                <option value="empty">Boş (%0)</option>
-                            </select>
+
+                        <div class="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-800/60">
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input v-model="rawWaterForm.is_filter_cleaned" type="checkbox" class="rounded text-emerald-600 w-4 h-4" />
+                                <span class="font-bold text-emerald-700 dark:text-emerald-300 text-xs">Filtre Temizliği ve Ters Yıkama Yapıldı</span>
+                            </label>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border">
-                        <div>
-                            <label class="block font-bold mb-1">Dozaj Pompası Modu</label>
-                            <select v-model="rawWaterForm.dosing_pump_mode" class="w-full border rounded-xl p-2 bg-white dark:bg-slate-900 font-bold">
-                                <option value="auto">Otomatik Dozaj</option>
-                                <option value="manual">Manuel Dozaj</option>
-                            </select>
+                    <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                        <h4 class="font-black text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">Kaynak Döngü ve Geçiş Bilgisi</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block font-bold mb-1">Aktif Başlangıç Tarihi</label>
+                                <input v-model="rawWaterForm.active_start_date" type="date" class="w-full border rounded-xl p-2.5 dark:bg-slate-900" />
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">Pasif / Dinlenme Başlangıç</label>
+                                <input v-model="rawWaterForm.passive_start_date" type="date" class="w-full border rounded-xl p-2.5 dark:bg-slate-900" />
+                            </div>
                         </div>
-                        <div class="flex items-center">
-                            <label class="flex items-center space-x-2 cursor-pointer mt-5">
-                                <input v-model="rawWaterForm.is_filter_cleaned" type="checkbox" class="rounded text-emerald-600" />
-                                <span class="font-bold text-emerald-700 dark:text-emerald-300">Filtre Temizliği Yapıldı (Fotoğraf Kanıtlı)</span>
-                            </label>
+                        <div>
+                            <label class="block font-bold mb-1">Kaynak Değişim / Geçiş Sebebi</label>
+                            <input v-model="rawWaterForm.source_switch_reason" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-900" placeholder="Örn: Dinlendirme periyodu tamamlandı, kuyu debisi düştü..." />
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                        <h4 class="font-black text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider">Depo Seviyeleri ve Klorlama Dozajı</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block font-bold mb-1">Ham Su Deposu Seviyesi</label>
+                                <select v-model="rawWaterForm.water_tank_level" class="w-full border rounded-xl p-2.5 dark:bg-slate-900 font-bold">
+                                    <option value="full">Dolu (%100)</option>
+                                    <option value="half_plus">Yarıdan Fazla (%75)</option>
+                                    <option value="half_minus">Yarıdan Az (%35)</option>
+                                    <option value="empty">Boş (%0)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">Klor Tankı Seviyesi</label>
+                                <select v-model="rawWaterForm.chlorine_tank_level" class="w-full border rounded-xl p-2.5 dark:bg-slate-900 font-bold">
+                                    <option value="full">Dolu (%100)</option>
+                                    <option value="half_plus">Yarıdan Fazla (%75)</option>
+                                    <option value="half_minus">Yarıdan Az (%35)</option>
+                                    <option value="empty">Boş (%0)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold mb-1">Depo Gözlem Notu</label>
+                            <input v-model="rawWaterForm.water_tank_note" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-900" placeholder="Dip tortu durumu, havalandırma vb." />
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                            <div>
+                                <label class="block font-bold mb-1">Dozaj Pompası Modu</label>
+                                <select v-model="rawWaterForm.dosing_pump_mode" class="w-full border rounded-xl p-2.5 dark:bg-slate-900 font-bold">
+                                    <option value="auto">Otomatik Dozaj (ORP / Debiye Bağlı)</option>
+                                    <option value="manual">Manuel Dozaj Ayarı</option>
+                                    <option value="faulty">Arızalı / Dozaj Yapılamıyor</option>
+                                </select>
+                            </div>
+                            <div v-if="rawWaterForm.dosing_pump_mode === 'manual'">
+                                <label class="block font-bold mb-1 text-amber-600 dark:text-amber-400">Manuel Dozaj Değeri / Debi</label>
+                                <input v-model="rawWaterForm.dosing_pump_manual_val" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-900" placeholder="Örn: 2.0 ppm / %40 strok" />
+                            </div>
+                            <div v-if="rawWaterForm.dosing_pump_mode === 'faulty'">
+                                <label class="block font-bold mb-1 text-rose-600 dark:text-rose-400">Dozaj Pompası Arıza Detayı</label>
+                                <input v-model="rawWaterForm.dosing_pump_fault_note" type="text" class="w-full border border-rose-300 dark:border-rose-800 rounded-xl p-2.5 dark:bg-slate-900" placeholder="Örn: Diyafram kaçırıyor..." />
+                            </div>
                         </div>
                     </div>
 
                     <div class="flex justify-end space-x-2 pt-3 border-t">
                         <button type="button" @click="showModal = false" class="px-4 py-2 border rounded-xl font-bold">İptal</button>
-                        <button type="submit" class="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-extrabold rounded-xl shadow-xs transition">Kontrolü Kaydet</button>
+                        <button type="submit" class="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-extrabold rounded-xl shadow-xs transition">
+                            {{ rawWaterForm.id ? 'Değişiklikleri Kaydet' : 'Kontrolü Kaydet' }}
+                        </button>
                     </div>
                 </form>
 
                 <form v-if="modalType === 'purification'" @submit.prevent="submitPurification" class="space-y-4 text-xs">
-                    <div>
-                        <label class="block font-bold mb-1">Su Kaynağı</label>
-                        <select v-model="purificationForm.water_source_id" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required>
-                            <option v-for="ws in waterSources" :key="ws.id" :value="ws.id">{{ ws.name }}</option>
-                        </select>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-bold mb-1">Kontrol Tarihi</label>
+                            <input v-model="purificationForm.control_date" type="date" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required />
+                        </div>
+                        <div>
+                            <label class="block font-bold mb-1">Su Kaynağı</label>
+                            <select v-model="purificationForm.water_source_id" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required>
+                                <option v-for="ws in waterSources" :key="ws.id" :value="ws.id">{{ ws.name }}</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="grid grid-cols-3 gap-2">
                         <div>
                             <label class="block font-bold mb-1">Giriş Basıncı (bar)</label>
                             <input v-model="purificationForm.inlet_pressure_bar" type="number" step="0.1" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required />
@@ -3522,6 +3865,10 @@ const handleApproval = (id: number, action: string) => {
                         <div>
                             <label class="block font-bold mb-1">Çıkış Basıncı (bar)</label>
                             <input v-model="purificationForm.outlet_pressure_bar" type="number" step="0.1" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" required />
+                        </div>
+                        <div>
+                            <label class="block font-bold mb-1">Uyarı Eşik Farkı (bar)</label>
+                            <input v-model="purificationForm.max_threshold_bar" type="number" step="0.1" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="1.50" />
                         </div>
                     </div>
                     <div class="flex justify-end space-x-2 pt-3 border-t">
@@ -3761,7 +4108,8 @@ const handleApproval = (id: number, action: string) => {
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
                         <div>
-                                 <input v-model="shipmentForm.dia_waybill_code" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-mono" placeholder="IRS-2026-001" />
+                            <label class="block font-bold mb-1">DİA / İrsaliye No</label>
+                            <input v-model="shipmentForm.dia_waybill_code" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-mono" placeholder="IRS-2026-001" />
                         </div>
                         <div>
                             <label class="block font-bold mb-1">Teslimat Şekli</label>
@@ -3776,6 +4124,21 @@ const handleApproval = (id: number, action: string) => {
                                 <option value="on_the_way">Yolda</option>
                                 <option value="delivered">Teslim Edildi</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div>
+                            <label class="block font-bold mb-1">Araç Plakası</label>
+                            <input v-model="shipmentForm.vehicle_plate" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950 font-mono uppercase" placeholder="07 ABC 123" />
+                        </div>
+                        <div>
+                            <label class="block font-bold mb-1">Şoför Adı</label>
+                            <input v-model="shipmentForm.driver_name" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="Şoför adı soyadı" />
+                        </div>
+                        <div>
+                            <label class="block font-bold mb-1">Şoför Telefonu</label>
+                            <input v-model="shipmentForm.driver_phone" type="text" class="w-full border rounded-xl p-2.5 dark:bg-slate-950" placeholder="0532..." />
                         </div>
                     </div>
 
@@ -4046,28 +4409,6 @@ const handleApproval = (id: number, action: string) => {
             </div>
         </div>
 
-        <div v-if="showPrintModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-            <div class="bg-white text-slate-900 rounded-2xl shadow-2xl w-full max-w-lg p-6 font-mono">
-                <div class="border-b-2 border-slate-900 pb-3 mb-4 text-center">
-                    <h2 class="text-base font-bold">SASA TARIM ERP - GÜBRE TANK HAZIRLAMA DÖKÜM ÇIKTISI</h2>
-                    <p class="text-xs mt-1">Reçete: {{ printModalData?.recipe?.name }} | {{ printModalData?.tank?.tank_name }}</p>
-                </div>
-                <div class="text-xs space-y-2 mb-6">
-                    <div class="font-bold border-b pb-1">TANK KAPASİTESİ: {{ printModalData?.tank?.capacity_liters }} LİTRE</div>
-                    <div class="font-bold text-sm text-rose-600">HAZIRLANACAK SOLÜSYON İÇERİĞİ:</div>
-                    <ul class="space-y-1">
-                        <li v-for="item in printModalData?.tank?.items" :key="item.id" class="flex justify-between border-b border-dashed pb-1">
-                            <span>- {{ item.product_name }} ({{ item.brand || 'Marka Belirtilmedi' }})</span>
-                            <span class="font-bold text-rose-600">{{ item.quantity }} {{ item.unit }}</span>
-                        </li>
-                    </ul>
-                </div>
-                <div class="flex justify-between items-center pt-4 border-t-2 border-slate-900">
-                    <button @click="showPrintModal = false" class="px-4 py-2 text-xs border rounded-xl font-bold">Kapat</button>
-                    <button @click="printPage()" class="px-4 py-2 text-xs bg-emerald-600 text-white rounded-xl font-bold">Yazdır</button>
-                </div>
-            </div>
-        </div>
 
         <div v-if="showCommentModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
             <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 dark:border-slate-800">
@@ -4114,7 +4455,7 @@ const handleApproval = (id: number, action: string) => {
         <!-- İmzalı Çavuş Fişi Yazdırma Modalı -->
         <!-- Resmi Günlük Çavuş Hakediş ve Puantaj Fişi Yazdırma Modalı -->
         <div v-if="showCrewPrintModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 print:p-0 print:static print:bg-white overflow-y-auto">
-            <div class="print-document bg-white text-black rounded-none shadow-none w-full max-w-4xl p-8 print:p-0 font-sans border print:border-none border-slate-300" style="background-color: #ffffff !important; color: #000000 !important;">
+            <div class="print-document bg-white text-slate-900 rounded-none shadow-none w-full max-w-4xl p-8 print:p-0 font-sans border print:border-none border-slate-300">
                 <!-- ÜST KURUMSAL BAŞLIK VE LOGO -->
                 <div class="flex justify-between items-center pb-3 mb-3 border-b-2 border-slate-900">
                     <div class="flex items-center gap-3">
@@ -4367,7 +4708,7 @@ const handleApproval = (id: number, action: string) => {
         </div>
         <!-- Resmi Müşteri Sipariş Fişi Yazdırma Modalı -->
         <div v-if="showOrderPrintModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 print:p-0 print:static print:bg-white overflow-y-auto">
-            <div class="print-document bg-white text-black rounded-none shadow-none w-full max-w-4xl p-8 print:p-0 font-sans border print:border-none border-slate-300" style="background-color: #ffffff !important; color: #000000 !important;">
+            <div class="print-document bg-white text-slate-900 rounded-none shadow-none w-full max-w-4xl p-8 print:p-0 font-sans border print:border-none border-slate-300">
                 <!-- ÜST KURUMSAL BAŞLIK VE LOGO -->
                 <div class="flex justify-between items-center pb-3 mb-3 border-b-2 border-slate-900">
                     <div class="flex items-center gap-3">
@@ -4530,7 +4871,7 @@ const handleApproval = (id: number, action: string) => {
 
         <!-- Resmi SASA Tarım Sevk İrsaliyesi / Taşıma Belgesi Çıktı Modalı -->
         <div v-if="showWaybillPrintModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 print:p-0 print:static print:bg-white overflow-y-auto">
-            <div class="print-document bg-white text-black rounded-none shadow-none w-full max-w-4xl p-8 print:p-0 font-sans border print:border-none border-slate-300" style="background-color: #ffffff !important; color: #000000 !important;">
+            <div class="print-document bg-white text-slate-900 rounded-none shadow-none w-full max-w-4xl p-8 print:p-0 font-sans border print:border-none border-slate-300">
                 <!-- ÜST KURUMSAL BAŞLIK VE LOGO -->
                 <div class="flex justify-between items-center pb-3 mb-3 border-b-2 border-slate-900">
                     <div class="flex items-center gap-3">
@@ -4709,138 +5050,152 @@ const handleApproval = (id: number, action: string) => {
         </div>
         <!-- Generic Print Modal -->
         <div v-if="showGenericPrintModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 print:p-0 print:static print:bg-white overflow-y-auto">
-            <div class="print-document bg-white text-black rounded-none shadow-none w-full max-w-4xl p-8 print:p-0 font-sans border print:border-none border-slate-300" style="background-color: #ffffff !important; color: #000000 !important;">
+            <div class="print-document bg-white text-slate-900 rounded-none shadow-none w-full max-w-4xl p-8 print:p-0 font-sans border print:border-none border-slate-300">
                 <!-- ÜST KURUMSAL BAŞLIK VE LOGO -->
-                <div class="flex justify-between items-center pb-3 mb-3 border-b-2 border-black" style="border-color: #000 !important;">
+                <div class="flex justify-between items-center pb-3 mb-3 border-b-2 border-slate-900">
                     <div class="flex items-center gap-3">
                         <img src="/sasaerp.svg" alt="SASA Tarım Logo" class="h-14 w-auto" />
                         <div>
-                            <div class="text-[10px] font-bold tracking-widest uppercase" style="color: #475569 !important;">KURUMSAL ERP SİSTEMİ</div>
-                            <div class="text-xs font-black tracking-wider" style="color: #000000 !important;">SASA TARIM İŞLETMELERİ A.Ş.</div>
+                            <div class="text-[10px] font-bold tracking-widest text-slate-500 uppercase">KURUMSAL ERP SİSTEMİ</div>
+                            <div class="text-xs font-black text-slate-900 tracking-wider">SASA TARIM İŞLETMELERİ A.Ş.</div>
                         </div>
                     </div>
 
                     <div class="text-center">
-                        <h1 class="text-sm font-black uppercase tracking-wider" style="color: #000000 !important;">SASA TARIM İŞLETMELERİ A.Ş.</h1>
-                        <h2 class="text-xs font-semibold uppercase tracking-wide" style="color: #334155 !important;">
+                        <h1 class="text-sm font-black text-slate-950 uppercase tracking-wider">SASA TARIM İŞLETMELERİ A.Ş.</h1>
+                        <h2 class="text-xs font-semibold text-slate-600 uppercase tracking-wide">
                             <span v-if="genericPrintType === 'gubreleme'">GÜBRELEME VE BESLEME BİRİMİ</span>
                             <span v-else-if="genericPrintType === 'sulama'">SULAMA OTOMASYON BİRİMİ</span>
                             <span v-else-if="genericPrintType === 'ilaclama'">BİTKİ KORUMA VE İLAÇLAMA BİRİMİ</span>
                             <span v-else-if="genericPrintType === 'su_analizi'">SU ANALİZ LABORATUVARI</span>
                             <span v-else-if="genericPrintType === 'kaynak_suyu_kontrol'">KAYNAK SUYU KONTROL BİRİMİ</span>
                             <span v-else-if="genericPrintType === 'aritma_suyu_kontrol'">ARITMA TESİSİ BİRİMİ</span>
-                            <span v-else-if="genericPrintType === 'is_planlama'">İŞ PLANLAMA VE YÖNETİM</span>
+                            <span v-else-if="genericPrintType === 'is_planlama'">İŞ PLANLAMA VE OPERASYON YÖNETİMİ</span>
                         </h2>
-                        <div class="text-xs font-bold uppercase tracking-widest mt-0.5" style="color: #000000 !important;">RESMİ SİSTEM ÇIKTISI</div>
+                        <div class="text-xs font-bold text-slate-900 uppercase tracking-widest mt-0.5">RESMİ BİRİM VE SÜREÇ RAPORU</div>
                     </div>
 
-                    <div class="border p-2 text-right text-[10px] font-mono leading-tight min-w-[130px]" style="border-color: #000 !important; background-color: #f8fafc !important; color: #000 !important;">
-                        <div><strong>BELGE NO:</strong> DOC-2026-{{ genericPrintData?.id || '000' }}</div>
+                    <div class="border border-slate-900 p-2 text-right text-[10px] font-mono leading-tight bg-slate-50 min-w-[130px]">
+                        <div><strong>BELGE NO:</strong> #DOC-{{ String(genericPrintData?.id || '001').padStart(4, '0') }}</div>
                         <div><strong>TARİH:</strong> {{ formatDisplayDate(new Date().toISOString()) }}</div>
-                        <div class="text-[9px] font-sans mt-0.5" style="color: #64748b !important;">SASA ERP Raporu</div>
+                        <div class="text-[9px] text-slate-500 font-sans mt-0.5">SASA ERP Raporu</div>
                     </div>
                 </div>
 
                 <!-- DİNAMİK İÇERİK BÖLÜMÜ -->
-                <div class="mb-4 min-h-[300px]">
-                    <h3 class="text-xs font-bold uppercase tracking-wider mb-2 border-b pb-1" style="color: #115e59 !important; border-color: #cbd5e1 !important;">
-                        SİSTEM KAYIT DETAYLARI
+                <div class="mb-4 min-h-[260px]">
+                    <h3 class="text-xs font-black text-teal-800 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <span>■</span> SİSTEM KAYIT VE OPERASYON DETAYLARI
                     </h3>
-                    <table class="w-full border-collapse border text-xs text-left" style="border-color: #000 !important; color: #000 !important;">
+                    <table class="w-full border-collapse border border-slate-900 text-xs text-left">
                         <tbody>
                             <!-- Gubreleme -->
                             <template v-if="genericPrintType === 'gubreleme'">
-                                <tr><td class="border p-2 font-bold w-1/3" style="border-color: #000 !important;">Uygulanan Tesis:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.production_location?.name || 'Tesis Belirtilmedi' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Reçete Adı:</td><td class="border p-2 font-bold" style="border-color: #000 !important;">{{ genericPrintData?.recipe?.name || '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Başlangıç Tarihi:</td><td class="border p-2" style="border-color: #000 !important;">{{ formatDisplayDate(genericPrintData?.start_date) }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Hedef pH / EC:</td><td class="border p-2" style="border-color: #000 !important;">pH: {{ genericPrintData?.recipe?.water_ph }} | EC: {{ genericPrintData?.recipe?.water_ec }} mS/cm</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Bitiş Şartı:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.end_condition || '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Durum:</td><td class="border p-2 font-bold" style="border-color: #000 !important;">{{ genericPrintData?.is_active ? 'Aktif Çalışan' : 'Pasif' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2 w-1/3">Uygulanan Tesis:</td><td class="border border-slate-900 p-2 font-bold">{{ genericPrintData?.production_location?.name || 'Tesis Belirtilmedi' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Reçete Adı:</td><td class="border border-slate-900 p-2 font-black text-indigo-900">{{ genericPrintData?.recipe?.name || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Başlangıç Tarihi:</td><td class="border border-slate-900 p-2 font-mono">{{ formatDisplayDate(genericPrintData?.start_date) }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Hedef Parametreler:</td><td class="border border-slate-900 p-2 font-mono font-bold">pH: {{ genericPrintData?.recipe?.water_ph || '6.0' }} | EC: {{ genericPrintData?.recipe?.water_ec || '1.8' }} mS/cm</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Bitiş Şartı:</td><td class="border border-slate-900 p-2">{{ genericPrintData?.end_condition || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Uygulama Durumu:</td><td class="border border-slate-900 p-2 font-bold text-emerald-700">{{ genericPrintData?.is_active ? '● Sahada Aktif Uygulanıyor' : '○ Pasif / Tamamlandı' }}</td></tr>
                             </template>
                             
                             <!-- Sulama -->
                             <template v-else-if="genericPrintType === 'sulama'">
-                                <tr><td class="border p-2 font-bold w-1/3" style="border-color: #000 !important;">Tesis / Lokasyon:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.production_location?.name || genericPrintData?.location?.name || '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Program Tarihi / Saati:</td><td class="border p-2" style="border-color: #000 !important;">{{ formatDisplayDate(genericPrintData?.schedule_date) }} - {{ genericPrintData?.start_time }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Sulama Tipi:</td><td class="border p-2 font-bold" style="border-color: #000 !important;">{{ genericPrintData?.is_fertilized ? 'Gübreli Sulama' : 'Boş Sulama' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Aktif Vanalar & Süreler:</td><td class="border p-2" style="border-color: #000 !important;">{{ (genericPrintData?.valves || []).map((v:any) => `${v.name || 'Vana'}: ${v.duration_minutes}dk`).join(', ') || 'Belirtilmedi' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Tank / Saha Notu:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.tank_stage_note || genericPrintData?.notes || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2 w-1/3">Tesis / Lokasyon:</td><td class="border border-slate-900 p-2 font-bold">{{ genericPrintData?.production_location?.name || genericPrintData?.location?.name || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Program Tarihi / Saati:</td><td class="border border-slate-900 p-2 font-mono font-bold">{{ formatDisplayDate(genericPrintData?.schedule_date) }} - {{ genericPrintData?.start_time }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Sulama Modu / Tipi:</td><td class="border border-slate-900 p-2 font-bold">{{ genericPrintData?.is_fertilized ? 'Besinli / Gübreli Sulama' : 'Düz / Boş Sulama' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Aktif Vanalar & Süreler:</td><td class="border border-slate-900 p-2 font-mono">{{ (genericPrintData?.valves || []).map((v:any) => `${v.name || 'Vana'}: ${v.duration_minutes}dk`).join(', ') || 'Belirtilmedi' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Tank / Saha Notu:</td><td class="border border-slate-900 p-2">{{ genericPrintData?.tank_stage_note || genericPrintData?.notes || '-' }}</td></tr>
                             </template>
                             
                             <!-- Ilaclama -->
                             <template v-else-if="genericPrintType === 'ilaclama'">
-                                <tr><td class="border p-2 font-bold w-1/3" style="border-color: #000 !important;">Uygulama Tarihi / Kod:</td><td class="border p-2" style="border-color: #000 !important;">{{ formatDisplayDate(genericPrintData?.application_date) }} | {{ genericPrintData?.batch_code || '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">İlaç Reçetesi:</td><td class="border p-2 font-bold" style="border-color: #000 !important;">{{ genericPrintData?.recipe?.name || '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Kullanım Amacı:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.purpose || '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Kaplanan Alan:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.covered_area_description || '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Uygulayan Personel:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.applied_by ? (genericPrintData.applied_by.first_name + ' ' + genericPrintData.applied_by.last_name) : '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Tank Durumu:</td><td class="border p-2 font-bold" style="border-color: #000 !important;">{{ genericPrintData?.is_tank_finished ? 'Tank Tamamlandı' : 'Ertesi Gün Devam' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2 w-1/3">Uygulama Tarihi / Parti Kodu:</td><td class="border border-slate-900 p-2 font-mono font-bold">{{ formatDisplayDate(genericPrintData?.application_date) }} | {{ genericPrintData?.batch_code || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">İlaç Reçetesi Adı:</td><td class="border border-slate-900 p-2 font-bold text-indigo-900">{{ genericPrintData?.recipe?.name || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Kullanım Amacı / Hedef Zararlı:</td><td class="border border-slate-900 p-2 font-semibold">{{ genericPrintData?.purpose || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Uygulama Yapılan Alan:</td><td class="border border-slate-900 p-2">{{ genericPrintData?.covered_area_description || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Uygulayan Personel:</td><td class="border border-slate-900 p-2 font-bold">{{ genericPrintData?.applied_by ? (genericPrintData.applied_by.first_name + ' ' + genericPrintData.applied_by.last_name) : '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Tank / Solüsyon Durumu:</td><td class="border border-slate-900 p-2 font-bold">{{ genericPrintData?.is_tank_finished ? 'Tank Tamamlandı' : 'Ertesi Gün Devam Edilecek' }}</td></tr>
                             </template>
                             
                             <!-- Su Analizi -->
                             <template v-else-if="genericPrintType === 'su_analizi'">
-                                <tr><td class="border p-2 font-bold w-1/3" style="border-color: #000 !important;">Su Kaynağı:</td><td class="border p-2 font-bold" style="border-color: #000 !important;">{{ genericPrintData?.water_source?.name || '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Analiz Tarihi:</td><td class="border p-2" style="border-color: #000 !important;">{{ formatDisplayDate(genericPrintData?.analysis_date) }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Ölçülen Değerler:</td><td class="border p-2 font-bold" style="border-color: #000 !important;">pH: {{ genericPrintData?.ph_level }} | EC: {{ genericPrintData?.ec_level }} mS/cm</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Laboratuvar Notu:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.notes || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2 w-1/3">Analiz Edilen Su Kaynağı:</td><td class="border border-slate-900 p-2 font-black text-indigo-900">{{ genericPrintData?.water_source?.name || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Numune / Analiz Tarihi:</td><td class="border border-slate-900 p-2 font-mono font-bold">{{ formatDisplayDate(genericPrintData?.analysis_date) }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Laboratuvar / Rapor No:</td><td class="border border-slate-900 p-2 font-bold">{{ genericPrintData?.chemical_details?.lab_name || 'SASA Akredite Analiz Laboratuvarı' }} | <span class="font-mono">{{ genericPrintData?.chemical_details?.report_no || ('#LAB-' + genericPrintData?.id) }}</span></td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Temel Fizikokimyasal:</td><td class="border border-slate-900 p-2 font-mono font-black text-sm">pH: {{ genericPrintData?.ph_level }} | EC: {{ genericPrintData?.ec_level }} mS/cm | TDS: {{ genericPrintData?.chemical_details?.tds || '-' }} ppm | Sertlik: {{ genericPrintData?.chemical_details?.hardness || '-' }} °F | SAR: {{ genericPrintData?.chemical_details?.sar || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Katyonlar (Ca, Mg, Na, K):</td><td class="border border-slate-900 p-2 font-mono">Ca: {{ genericPrintData?.chemical_details?.calcium || '-' }} mg/L | Mg: {{ genericPrintData?.chemical_details?.magnesium || '-' }} mg/L | Na: {{ genericPrintData?.chemical_details?.sodium || '-' }} mg/L | K: {{ genericPrintData?.chemical_details?.potassium || '-' }} mg/L</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Anyonlar (HCO3, SO4, Cl, NO3):</td><td class="border border-slate-900 p-2 font-mono">HCO₃: {{ genericPrintData?.chemical_details?.bicarbonate || '-' }} mg/L | SO₄: {{ genericPrintData?.chemical_details?.sulfate || '-' }} mg/L | Cl: {{ genericPrintData?.chemical_details?.chloride || '-' }} mg/L | NO₃: {{ genericPrintData?.chemical_details?.nitrate || '-' }} mg/L</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Zirai Sulama Uygunluğu:</td><td class="border border-slate-900 p-2 font-bold text-emerald-700">● {{ genericPrintData?.chemical_details?.suitability || 'Sulamaya Uygun (A Sınıfı)' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Laboratuvar / Mühendis Yorumu:</td><td class="border border-slate-900 p-2">{{ genericPrintData?.notes || 'Su analiz değerleri standart tarımsal besleme normlarına uygundur.' }}</td></tr>
                             </template>
                             
                             <!-- Kaynak Suyu -->
                             <template v-else-if="genericPrintType === 'kaynak_suyu_kontrol'">
-                                <tr><td class="border p-2 font-bold w-1/3" style="border-color: #000 !important;">Kaynak / Pompa Adı:</td><td class="border p-2 font-bold" style="border-color: #000 !important;">{{ genericPrintData?.water_source?.name || '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Kontrol Tarihi:</td><td class="border p-2" style="border-color: #000 !important;">{{ formatDisplayDate(genericPrintData?.control_date) }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Depo / Tank Durumu:</td><td class="border p-2" style="border-color: #000 !important;">Su: {{ genericPrintData?.water_tank_level }} | Klor: {{ genericPrintData?.chlorine_tank_level }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Dozaj Pompası:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.dosing_pump_mode === 'auto' ? 'Otomatik Dozaj' : 'Manuel Mod' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Ölçülen Değerler:</td><td class="border p-2 font-bold" style="border-color: #000 !important;">pH: {{ genericPrintData?.ph_val }} | EC: {{ genericPrintData?.ec_val }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Filtre & Pompa Durumu:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.is_filter_cleaned ? 'Filtre Temiz' : 'Filtre Kirli' }} | Pompa: {{ genericPrintData?.pump_status === 'open' ? 'Açık' : 'Kapalı' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2 w-1/3">Kaynak / Pompa İstasyonu:</td><td class="border border-slate-900 p-2 font-black text-indigo-900">{{ genericPrintData?.water_source?.name || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Kontrol ve Ölçüm Tarihi:</td><td class="border border-slate-900 p-2 font-mono font-bold">{{ formatDisplayDate(genericPrintData?.control_date) }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Depo & Klor Seviyeleri:</td><td class="border border-slate-900 p-2 font-mono">Su Tankı: %{{ genericPrintData?.water_tank_level }} | Klor Tankı: %{{ genericPrintData?.chlorine_tank_level }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Dozaj Pompası Çalışma Modu:</td><td class="border border-slate-900 p-2 font-bold">{{ genericPrintData?.dosing_pump_mode === 'auto' ? 'Otomatik Otomasyon Modu' : 'Manuel Müdahale Modu' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Anlık pH ve EC Ölçümü:</td><td class="border border-slate-900 p-2 font-mono font-bold">pH: {{ genericPrintData?.ph_val }} | EC: {{ genericPrintData?.ec_val }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Filtre & Pompa Durumu:</td><td class="border border-slate-900 p-2 font-bold">{{ genericPrintData?.is_filter_cleaned ? 'Filtre Temiz' : 'Filtre Bakımı Gerekli' }} | Pompa: {{ genericPrintData?.pump_status === 'open' ? 'Açık / Çalışıyor' : 'Kapalı' }}</td></tr>
                             </template>
                             
                             <!-- Arıtma Suyu -->
                             <template v-else-if="genericPrintType === 'aritma_suyu_kontrol'">
-                                <tr><td class="border p-2 font-bold w-1/3" style="border-color: #000 !important;">Arıtma Ünitesi / Kuyu:</td><td class="border p-2 font-bold" style="border-color: #000 !important;">{{ genericPrintData?.water_source?.name || '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Kontrol Tarihi:</td><td class="border p-2" style="border-color: #000 !important;">{{ formatDisplayDate(genericPrintData?.control_date) }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Basınç Değerleri:</td><td class="border p-2" style="border-color: #000 !important;">Giriş: {{ genericPrintData?.inlet_pressure_bar }} bar | Çıkış: {{ genericPrintData?.outlet_pressure_bar }} bar</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Fark Basınç (&Delta;P):</td><td class="border p-2 font-bold" style="border-color: #000 !important;">{{ genericPrintData?.delta_pressure_bar }} bar (Max Eşik: {{ genericPrintData?.max_threshold_bar }} bar)</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Durum:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.has_warning ? 'UYARI: Filtre Doldu!' : 'Basınç Farkı Normal' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2 w-1/3">Arıtma Ünitesi / Kuyu:</td><td class="border border-slate-900 p-2 font-black text-indigo-900">{{ genericPrintData?.water_source?.name || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Kontrol Tarihi:</td><td class="border border-slate-900 p-2 font-mono font-bold">{{ formatDisplayDate(genericPrintData?.control_date) }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Giriş / Çıkış Basınçları:</td><td class="border border-slate-900 p-2 font-mono font-bold">Giriş: {{ genericPrintData?.inlet_pressure_bar }} bar | Çıkış: {{ genericPrintData?.outlet_pressure_bar }} bar</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Fark Basıncı (&Delta;P):</td><td class="border border-slate-900 p-2 font-mono font-black text-sm">{{ genericPrintData?.delta_pressure_bar }} bar (İzin Verilen Eşik: {{ genericPrintData?.max_threshold_bar }} bar)</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Filtre Durum Değerlendirmesi:</td><td class="border border-slate-900 p-2 font-bold" :class="genericPrintData?.has_warning ? 'text-rose-700' : 'text-emerald-700'">{{ genericPrintData?.has_warning ? '⚠️ UYARI: Filtre Tıkalı - Geri Yıkama Gerekli' : '✓ Filtre Geçirgenliği Normal' }}</td></tr>
                             </template>
                             
                             <!-- İş Planlama -->
                             <template v-else-if="genericPrintType === 'is_planlama'">
-                                <tr><td class="border p-2 font-bold w-1/3" style="border-color: #000 !important;">Görev Başlığı / Türü:</td><td class="border p-2 font-bold" style="border-color: #000 !important;">{{ genericPrintData?.title }} | {{ genericPrintData?.job_type?.name || '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Durum:</td><td class="border p-2 font-bold" style="border-color: #000 !important;">{{ genericPrintData?.status === 'completed' ? 'Tamamlandı' : (genericPrintData?.status === 'in_progress' ? 'Devam Ediyor' : 'Beklemede') }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Tesis:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.production_location?.name || '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Görevli / Sorumlu:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.assigned_personnel ? (genericPrintData.assigned_personnel.first_name + ' ' + genericPrintData.assigned_personnel.last_name) : '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Plan / Hedef Tarih:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.plan_date }} - {{ genericPrintData?.due_date || '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Müdür Talimatı:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.description || '-' }}</td></tr>
-                                <tr><td class="border p-2 font-bold" style="border-color: #000 !important;">Süreç Notu:</td><td class="border p-2" style="border-color: #000 !important;">{{ genericPrintData?.completion_notes || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2 w-1/3">Görev Başlığı / İş Türü:</td><td class="border border-slate-900 p-2 font-black text-indigo-900">{{ genericPrintData?.title }} | {{ genericPrintData?.job_type?.name || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">İş Durumu:</td><td class="border border-slate-900 p-2 font-bold">{{ genericPrintData?.status === 'completed' ? '✓ Tamamlandı' : (genericPrintData?.status === 'in_progress' ? '⏳ Devam Ediyor' : '⏱ Beklemede') }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Uygulama Tesisi:</td><td class="border border-slate-900 p-2 font-bold">{{ genericPrintData?.production_location?.name || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Sorumlu Personel:</td><td class="border border-slate-900 p-2 font-bold">{{ genericPrintData?.assigned_personnel ? (genericPrintData.assigned_personnel.first_name + ' ' + genericPrintData.assigned_personnel.last_name) : '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Plan / Hedef Tarihleri:</td><td class="border border-slate-900 p-2 font-mono">{{ genericPrintData?.plan_date }} - {{ genericPrintData?.due_date || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Yönetim / Görev Talimatı:</td><td class="border border-slate-900 p-2">{{ genericPrintData?.description || '-' }}</td></tr>
+                                <tr><td class="border border-slate-900 bg-slate-100 font-bold p-2">Tamamlama / Süreç Notu:</td><td class="border border-slate-900 p-2">{{ genericPrintData?.completion_notes || '-' }}</td></tr>
                             </template>
                         </tbody>
                     </table>
                 </div>
 
-                <!-- BÖLÜM 5: YETKİLİLER / İMZA KUTULARI -->
+                <!-- BÖLÜM 2: YETKİLİLER / İMZA KUTULARI -->
                 <div class="mb-4">
-                    <h3 class="text-xs font-bold uppercase tracking-wider mb-1.5" style="color: #115e59 !important;">YETKİLİLER (ONAY VE İMZA)</h3>
+                    <h3 class="text-xs font-black text-teal-800 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <span>■</span> YETKİLİ ONAY VE İMZA BLOKLARI
+                    </h3>
                     <div class="grid grid-cols-2 gap-3">
-                        <div class="border border-dashed p-2 text-center flex flex-col justify-between h-20" style="border-color: #334155 !important;">
-                            <span class="text-[10px] font-bold uppercase" style="color: #000 !important;">RAPORU OLUŞTURAN</span>
-                            <span class="text-[9px]" style="color: #475569 !important;">Sistem Kullanıcısı</span>
-                            <div class="text-[8px] uppercase" style="color: #94a3b8 !important;">İmza / Kaşe</div>
+                        <div class="border border-slate-900 p-2.5 text-center flex flex-col justify-between h-24 bg-slate-50/50">
+                            <span class="text-[11px] font-bold text-slate-800 uppercase">RAPORU OLUŞTURAN</span>
+                            <span class="text-[10px] text-slate-600">Sistem Yetkilisi</span>
+                            <div class="border-t border-slate-400 pt-1 text-[9px] text-slate-500 uppercase">İmza / Tarih</div>
                         </div>
-                        <div class="border border-dashed p-2 text-center flex flex-col justify-between h-20" style="border-color: #334155 !important;">
-                            <span class="text-[10px] font-bold uppercase" style="color: #000 !important;">SASA TARIM BİRİM SORUMLUSU</span>
-                            <span class="text-[9px]" style="color: #475569 !important;">Onay</span>
-                            <div class="text-[8px] uppercase" style="color: #94a3b8 !important;">İmza / Mühür</div>
+                        <div class="border border-slate-900 p-2.5 text-center flex flex-col justify-between h-24 bg-slate-50/50">
+                            <span class="text-[11px] font-bold text-slate-800 uppercase">BİRİM SORUMLUSU ONAY</span>
+                            <span class="text-[10px] text-slate-600">Ziraat Mühendisi / Yönetim</span>
+                            <div class="border-t border-slate-400 pt-1 text-[9px] text-slate-500 uppercase">İmza & Mühür</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- BARKOD VE ELEKTRONİK DOĞRULAMA -->
-                <div class="pt-2 border-t-2 flex flex-col items-center justify-center text-center" style="border-color: #000 !important;">
-                    <p class="text-[8.5px] mt-1 max-w-xl leading-tight" style="color: #475569 !important;">
-                        İşbu rapor SASA Tarım ERP sistemi tarafından üretilmiştir.
+                <!-- BÖLÜM 3: ELEKTRONİK DOĞRULAMA VE BARKOD -->
+                <div class="pt-3 border-t-2 border-slate-900 flex flex-col items-center justify-center text-center">
+                    <div class="flex items-center justify-center gap-0.5 h-6 mb-1">
+                        <div v-for="n in 52" :key="n" :class="n % 3 === 0 ? 'w-1 bg-black' : (n % 2 === 0 ? 'w-0.5 bg-black' : 'w-1 bg-transparent h-full inline-block')"></div>
+                    </div>
+                    <div class="font-mono text-[9px] font-bold tracking-widest text-slate-900">
+                        SASA-DOC-2026-{{ String(genericPrintData?.id || '001').padStart(6, '0') }}-GEN
+                    </div>
+                    <p class="text-[8.5px] text-slate-600 mt-1 max-w-xl">
+                        İşbu resmi birim raporu SASA Tarım ERP sistemi tarafından elektronik ortamda üretilmiştir.
                     </p>
-                    <div class="text-[8.5px] font-mono mt-0.5" style="color: #94a3b8 !important;">1 / 1</div>
+                    <div class="text-[8.5px] font-mono text-slate-400 mt-0.5">
+                        Sayfa 1 / 1
+                    </div>
                 </div>
 
                 <!-- DÖKÜMAN EYLEMLERİ -->
@@ -4904,95 +5259,149 @@ const handleApproval = (id: number, action: string) => {
         </div>
 
         <!-- ÇALIŞAN TANK HAZIRLAMA TALİMATI ÇIKTI MODALI -->
-        <div v-if="showTankPrintModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl p-6 overflow-y-auto max-h-[90vh]">
-                <div class="no-print flex justify-between items-center pb-3 mb-4 border-b border-slate-100 dark:border-slate-800">
-                    <div>
-                        <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100">Çalışan Tank Hazırlama Talimat Çıktısı</h3>
-                        <p class="text-[11px] text-slate-500">{{ tankPrintData?.tank?.tank_name }} için sahaya verilecek basılı reçete belgesi</p>
+        <div v-if="showTankPrintModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 print:p-0 print:static print:bg-white overflow-y-auto">
+            <div id="tank-print-document" class="print-document bg-white text-slate-900 rounded-none shadow-none w-full max-w-4xl p-8 print:p-0 font-sans border print:border-none border-slate-300">
+                <!-- ÜST KURUMSAL BAŞLIK VE LOGO -->
+                <div class="flex justify-between items-center pb-3 mb-3 border-b-2 border-slate-900">
+                    <div class="flex items-center gap-3">
+                        <img src="/sasaerp.svg" alt="SASA Tarım Logo" class="h-14 w-auto" />
+                        <div>
+                            <div class="text-[10px] font-bold tracking-widest text-slate-500 uppercase">KURUMSAL ERP SİSTEMİ</div>
+                            <div class="text-xs font-black text-slate-900 tracking-wider">SASA TARIM İŞLETMELERİ A.Ş.</div>
+                        </div>
                     </div>
-                    <button @click="showTankPrintModal = false" class="text-slate-400 hover:text-slate-700 font-bold text-2xl leading-none">&times;</button>
+
+                    <div class="text-center">
+                        <h1 class="text-sm font-black text-slate-950 uppercase tracking-wider">SASA TARIM İŞLETMELERİ A.Ş.</h1>
+                        <h2 class="text-xs font-semibold text-slate-600 uppercase tracking-wide">GÜBRELEME VE BESLEME ÜNİTESİ</h2>
+                        <div class="text-xs font-bold text-slate-900 uppercase tracking-widest mt-0.5">TANK SOLÜSYON HAZIRLAMA REÇETESİ (SAHA TALİMAT DÖKÜMÜ)</div>
+                    </div>
+
+                    <div class="border border-slate-900 p-2 text-right text-[10px] font-mono leading-tight bg-slate-50 min-w-[130px]">
+                        <div><strong>REÇETE NO:</strong> #RCP-{{ String(tankPrintData?.recipe?.id || '01').padStart(4, '0') }}</div>
+                        <div><strong>DÖKÜM:</strong> {{ formatDisplayDate(new Date().toISOString()) }}</div>
+                        <div class="text-[9px] text-slate-500 font-sans mt-0.5">SASA ERP Belgesi</div>
+                    </div>
                 </div>
 
-                <div id="tank-print-document" class="print-document bg-white p-6 rounded-xl border border-slate-300 text-slate-900 space-y-4">
-                    <div class="flex justify-between items-center border-b-2 border-slate-900 pb-3">
-                        <div class="flex items-center gap-3">
-                            <img src="/sasaerp.svg" alt="SASA Logo" class="h-12 w-auto" />
-                            <div>
-                                <div class="text-[10px] font-bold tracking-widest text-slate-500">KURUMSAL ERP SİSTEMİ</div>
-                                <div class="text-xs font-black text-slate-900">SASA TARIM İŞLETMELERİ A.Ş.</div>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <h2 class="text-sm font-black uppercase tracking-wider text-slate-900">TANK SOLÜSYON HAZIRLAMA REÇETESİ</h2>
-                            <span class="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">SAHA İŞÇİ TALİMAT DÖKÜMÜ</span>
-                        </div>
-                    </div>
+                <!-- BÖLÜM 1: REÇETE VE TANK DETAYLARI -->
+                <div class="mb-4">
+                    <h3 class="text-xs font-black text-teal-800 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <span>■</span> TANK VE UYGULAMA BİLGİLERİ
+                    </h3>
+                    <table class="w-full border-collapse border border-slate-900 text-xs">
+                        <tbody>
+                            <tr>
+                                <td class="border border-slate-900 bg-slate-100 font-bold p-1.5 w-1/4">Gübre Reçetesi Adı:</td>
+                                <td class="border border-slate-900 p-1.5 w-1/4 font-bold">{{ tankPrintData?.recipe?.name || 'Genel Besleme Reçetesi' }}</td>
+                                <td class="border border-slate-900 bg-slate-100 font-bold p-1.5 w-1/4">Hedef Su Değerleri:</td>
+                                <td class="border border-slate-900 p-1.5 w-1/4 font-mono font-bold">pH: {{ tankPrintData?.recipe?.water_ph || '6.0' }} | EC: {{ tankPrintData?.recipe?.water_ec || '1.8' }} mS/cm</td>
+                            </tr>
+                            <tr>
+                                <td class="border border-slate-900 bg-slate-100 font-bold p-1.5">Hazırlanacak Tank:</td>
+                                <td class="border border-slate-900 p-1.5 font-black text-indigo-900">{{ tankPrintData?.tank?.tank_name }}</td>
+                                <td class="border border-slate-900 bg-slate-100 font-bold p-1.5">Tank Kapasitesi:</td>
+                                <td class="border border-slate-900 p-1.5 font-bold font-mono">{{ tankPrintData?.tank?.capacity_liters }} Litre Su</td>
+                            </tr>
+                            <tr>
+                                <td class="border border-slate-900 bg-slate-100 font-bold p-1.5">Uygulama / Bitiş Şartı:</td>
+                                <td class="border border-slate-900 p-1.5 font-bold">{{ tankPrintData?.run?.end_condition || tankPrintData?.recipe?.duration_condition || 'Standart Program' }}</td>
+                                <td class="border border-slate-900 bg-slate-100 font-bold p-1.5">Aktif Durum:</td>
+                                <td class="border border-slate-900 p-1.5 font-bold text-emerald-700">● Sahada Aktif Uygulama</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
 
-                    <div class="grid grid-cols-2 gap-3 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
-                        <div>
-                            <div><strong>GÜBRE REÇETESİ:</strong> {{ tankPrintData?.recipe?.name || 'Reçete' }}</div>
-                            <div><strong>HAZIRLANACAK TANK:</strong> <span class="font-black text-indigo-700">{{ tankPrintData?.tank?.tank_name }}</span></div>
-                            <div><strong>TANK KAPASİTESİ:</strong> <span class="font-bold">{{ tankPrintData?.tank?.capacity_liters }} Litre Su</span></div>
-                        </div>
-                        <div class="text-right">
-                            <div><strong>DÖKÜM TARİHİ:</strong> {{ new Date().toLocaleDateString('tr-TR') }}</div>
-                            <div><strong>SU pH / EC HEDEFİ:</strong> pH: {{ tankPrintData?.recipe?.water_ph || '6.5' }} | EC: {{ tankPrintData?.recipe?.water_ec || '1.8' }} mS/cm</div>
-                            <div><strong>BİTİŞ ŞARTI:</strong> {{ tankPrintData?.run?.end_condition || tankPrintData?.recipe?.duration_condition || '-' }}</div>
-                        </div>
-                    </div>
+                <!-- BÖLÜM 2: TANKA KONULACAK GÜBRE VE SOLÜSYON İÇERİKLERİ -->
+                <div class="mb-4">
+                    <h3 class="text-xs font-black text-teal-800 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <span>■</span> TANKA KONULACAK GÜBRE VE SOLÜSYON İÇERİKLERİ
+                    </h3>
+                    <table class="w-full border-collapse border border-slate-900 text-xs text-left">
+                        <thead class="bg-slate-100 text-slate-900 font-bold">
+                            <tr>
+                                <th class="border border-slate-900 p-2 text-center w-10">#</th>
+                                <th class="border border-slate-900 p-2">Gübre / Kimyasal Ürün</th>
+                                <th class="border border-slate-900 p-2">Marka / Üretici</th>
+                                <th class="border border-slate-900 p-2 text-center">Konulacak Net Miktar</th>
+                                <th class="border border-slate-900 p-2">Kullanım Amacı</th>
+                                <th class="border border-slate-900 p-2">Saha Notu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(it, idx) in tankPrintData?.tank?.items" :key="idx">
+                                <td class="border border-slate-900 p-2 font-mono font-bold text-center">{{ idx + 1 }}</td>
+                                <td class="border border-slate-900 p-2 font-extrabold text-slate-900">{{ it.product_name }}</td>
+                                <td class="border border-slate-900 p-2">{{ it.brand || '-' }}</td>
+                                <td class="border border-slate-900 p-2 font-black text-center text-indigo-900 bg-slate-50 font-mono text-sm">{{ it.quantity }} {{ it.unit }}</td>
+                                <td class="border border-slate-900 p-2 font-semibold">{{ it.usage_purpose || '-' }}</td>
+                                <td class="border border-slate-900 p-2 text-[11px] text-slate-600">{{ it.description || '-' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
 
-                    <div>
-                        <h3 class="text-xs font-black uppercase tracking-wider mb-1.5 text-slate-800">TANKA KONULACAK GÜBRE VE SOLÜSYON İÇERİKLERİ</h3>
-                        <table class="w-full border-collapse border border-slate-900 text-xs text-left">
-                            <thead class="bg-slate-200 font-bold uppercase text-[10px]">
-                                <tr>
-                                    <th class="border border-slate-900 p-2">#</th>
-                                    <th class="border border-slate-900 p-2">Gübre Ürünü</th>
-                                    <th class="border border-slate-900 p-2">Marka</th>
-                                    <th class="border border-slate-900 p-2 text-center">Konulacak Miktar</th>
-                                    <th class="border border-slate-900 p-2">Kullanım Amacı</th>
-                                    <th class="border border-slate-900 p-2">Açıklama / Not</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="(it, idx) in tankPrintData?.tank?.items" :key="idx" class="border-b border-slate-900">
-                                    <td class="border border-slate-900 p-2 font-bold text-center">{{ idx + 1 }}</td>
-                                    <td class="border border-slate-900 p-2 font-extrabold text-slate-900">{{ it.product_name }}</td>
-                                    <td class="border border-slate-900 p-2">{{ it.brand || '-' }}</td>
-                                    <td class="border border-slate-900 p-2 font-black text-center text-indigo-900 bg-slate-50">{{ it.quantity }} {{ it.unit }}</td>
-                                    <td class="border border-slate-900 p-2 font-semibold">{{ it.usage_purpose || '-' }}</td>
-                                    <td class="border border-slate-900 p-2 text-[11px]">{{ it.description || '-' }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs space-y-1 text-amber-900">
-                        <div class="font-bold">SAHA HAZIRLAMA VE GÜVENLİK TALİMATLARI:</div>
+                <!-- BÖLÜM 3: SAHA GÜVENLİK VE HAZIRLAMA TALİMATLARI -->
+                <div class="mb-4">
+                    <h3 class="text-xs font-black text-teal-800 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <span>■</span> SAHA HAZIRLAMA VE İŞ GÜVENLİĞİ TALİMATLARI
+                    </h3>
+                    <div class="p-3 bg-amber-50 rounded-lg border border-amber-300 text-xs space-y-1 text-amber-900">
+                        <div class="font-bold uppercase tracking-wider">Dikkat Edilecek Hususlar:</div>
                         <ol class="list-decimal list-inside text-[11px] space-y-0.5">
-                            <li>Tankı önce %80 oranında temiz su ile doldurunuz.</li>
-                            <li>Listede verilen gübreleri yukarıdaki gramajlara göre hassas terazide tartarak ekleyiniz.</li>
-                            <li>Tüm gübreler tamamen eriyene kadar karıştırıcıyı en az 15 dakika çalıştırınız.</li>
-                            <li>Eldiven ve koruyucu maske takılması zorunludur.</li>
+                            <li>Tankı önce en az <strong>%80 oranında temiz su</strong> ile doldurunuz.</li>
+                            <li>Listede belirtilen gübreleri yukarıdaki gramajlara göre kalibre edilmiş <strong>hassas terazide</strong> tartarak ekleyiniz.</li>
+                            <li>Tüm gübreler tamamen homojen çözünene kadar karıştırıcı mikseri en az <strong>15 dakika</strong> aralıksız çalıştırınız.</li>
+                            <li>Kimyasal ve konsantre gübre temasını önlemek için <strong>koruyucu eldiven, önlük ve maske</strong> takılması zorunludur.</li>
                         </ol>
                     </div>
+                </div>
 
-                    <div class="grid grid-cols-2 gap-4 text-xs pt-4 border-t border-slate-300">
-                        <div class="border border-dashed p-3 rounded-lg text-center h-20 flex flex-col justify-between">
-                            <span class="font-bold uppercase">HAZIRLAYAN GÖREVLİ İMZA</span>
-                            <span class="text-[10px] text-slate-500">Tarih: ..... / ..... / 2026</span>
+                <!-- BÖLÜM 4: İMZA VE ONAY BLOKLARI -->
+                <div class="mb-4">
+                    <h3 class="text-xs font-black text-teal-800 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <span>■</span> YETKİLİ ONAY VE İMZA BLOKLARI
+                    </h3>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="border border-slate-900 p-2.5 text-center flex flex-col justify-between h-24 bg-slate-50/50">
+                            <span class="text-[11px] font-bold text-slate-800 uppercase">HAZIRLAYAN GÖREVLİ</span>
+                            <span class="text-[10px] text-slate-600">Saha Personeli</span>
+                            <div class="border-t border-slate-400 pt-1 text-[9px] text-slate-500 uppercase">İmza / Tarih</div>
                         </div>
-                        <div class="border border-dashed p-3 rounded-lg text-center h-20 flex flex-col justify-between">
-                            <span class="font-bold uppercase">ZİRAAT MÜHENDİSİ ONAY</span>
-                            <span class="text-[10px] text-slate-500">İmza & Kaşe</span>
+                        <div class="border border-slate-900 p-2.5 text-center flex flex-col justify-between h-24 bg-slate-50/50">
+                            <span class="text-[11px] font-bold text-slate-800 uppercase">KONTROL & MÜHENDİS</span>
+                            <span class="text-[10px] text-slate-600">Ziraat Mühendisi</span>
+                            <div class="border-t border-slate-400 pt-1 text-[9px] text-slate-500 uppercase">İmza & Kaşe</div>
+                        </div>
+                        <div class="border border-slate-900 p-2.5 text-center flex flex-col justify-between h-24 bg-slate-50/50">
+                            <span class="text-[11px] font-bold text-slate-800 uppercase">TESİS YÖNETİMİ</span>
+                            <span class="text-[10px] text-slate-600">Operasyon Onayı</span>
+                            <div class="border-t border-slate-400 pt-1 text-[9px] text-slate-500 uppercase">İmza & Mühür</div>
                         </div>
                     </div>
                 </div>
 
+                <!-- BÖLÜM 5: ELEKTRONİK DOĞRULAMA VE BARKOD -->
+                <div class="pt-3 border-t-2 border-slate-900 flex flex-col items-center justify-center text-center">
+                    <div class="flex items-center justify-center gap-0.5 h-6 mb-1">
+                        <div v-for="n in 52" :key="n" :class="n % 3 === 0 ? 'w-1 bg-black' : (n % 2 === 0 ? 'w-0.5 bg-black' : 'w-1 bg-transparent h-full inline-block')"></div>
+                    </div>
+                    <div class="font-mono text-[9px] font-bold tracking-widest text-slate-900">
+                        SASA-TANK-2026-{{ String(tankPrintData?.tank?.id || '001').padStart(4, '0') }}-RCP
+                    </div>
+                    <p class="text-[8.5px] text-slate-600 mt-1 max-w-xl">
+                        İşbu reçete formu SASA Tarım ERP sistemi tarafından sahada gübreleme ve sulama yönetimi için üretilmiştir.
+                    </p>
+                    <div class="text-[8.5px] font-mono text-slate-400 mt-0.5">
+                        Sayfa 1 / 1
+                    </div>
+                </div>
+
+                <!-- DÖKÜMAN EYLEMLERİ -->
                 <div class="no-print flex justify-between items-center pt-4 mt-4 border-t border-slate-200">
-                    <button @click="showTankPrintModal = false" class="px-4 py-2 text-xs border rounded-xl font-bold">Kapat</button>
-                    <button @click="printPage('tank-print-document')" class="px-5 py-2 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition flex items-center gap-2 shadow-xs">
+                    <button @click="showTankPrintModal = false" class="px-4 py-2 text-xs border rounded-xl font-bold hover:bg-slate-100 transition">Kapat</button>
+                    <button @click="printPage('tank-print-document')" class="px-5 py-2 text-xs bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition flex items-center gap-2 shadow-sm">
                         Çalışan Talimat Belgesini Yazdır (A4)
                     </button>
                 </div>
@@ -5000,53 +5409,3 @@ const handleApproval = (id: number, action: string) => {
         </div>
     </AuthenticatedLayout>
 </template>
-
-<style>
-/* Karanlık Modda Çıktı Önizlemelerini Beyaz/Siyah Zorlaması */
-.print-document {
-    background-color: #ffffff !important;
-    color: #0f172a !important;
-}
-.print-document *, .print-document table, .print-document td, .print-document th {
-    border-color: #0f172a !important;
-}
-.print-document h1, .print-document h2, .print-document h3, .print-document p, .print-document span, .print-document div, .print-document td, .print-document th, .print-document strong {
-    color: #0f172a !important;
-}
-.print-document .text-slate-500 { color: #64748b !important; }
-.print-document .text-slate-600 { color: #475569 !important; }
-.print-document .text-slate-400 { color: #94a3b8 !important; }
-.print-document .text-teal-800 { color: #115e59 !important; }
-.print-document .bg-slate-50 { background-color: #f8fafc !important; }
-
-@media print {
-    @page {
-        size: A4 portrait;
-        margin: 10mm 12mm;
-    }
-    body {
-        background: white !important;
-        color: black !important;
-    }
-    .no-print {
-        display: none !important;
-    }
-    nav, aside, header, footer {
-        display: none !important;
-    }
-    .fixed.inset-0 {
-        position: static !important;
-        background: transparent !important;
-        padding: 0 !important;
-        display: block !important;
-    }
-    .print-document {
-        width: 100% !important;
-        max-width: 100% !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        box-shadow: none !important;
-        border: none !important;
-    }
-}
-</style>

@@ -236,34 +236,50 @@ class MasterDefinitionsController extends Controller
         $location = ProductionLocation::updateOrCreate(['id' => $request->id], $validated);
 
         if ($request->has('sections') && is_array($request->sections)) {
-            $location->sections()->delete();
+            $existingSecIds = [];
             foreach ($request->sections as $sec) {
                 if (!empty($sec['name'])) {
-                    $location->sections()->create([
+                    $secData = [
                         'name' => $sec['name'],
                         'section_type' => $sec['section_type'] ?? 'greenhouse',
                         'area_dekar' => $sec['area_dekar'] ?? 0,
                         'tunnel_count' => $sec['tunnel_count'] ?? 0,
                         'table_stand_count' => $sec['table_stand_count'] ?? 0,
                         'approx_plant_count' => $sec['approx_plant_count'] ?? null,
-                    ]);
+                    ];
+                    if (!empty($sec['id']) && $existing = $location->sections()->find($sec['id'])) {
+                        $existing->update($secData);
+                        $existingSecIds[] = $existing->id;
+                    } else {
+                        $newSec = $location->sections()->create($secData);
+                        $existingSecIds[] = $newSec->id;
+                    }
                 }
             }
+            $location->sections()->whereNotIn('id', $existingSecIds)->delete();
         }
 
         if ($request->has('valves') && is_array($request->valves)) {
-            $location->valves()->delete();
+            $existingValveIds = [];
             foreach ($request->valves as $valve) {
                 if (!empty($valve['name'])) {
-                    $location->valves()->create([
+                    $valveData = [
                         'production_section_id' => $valve['production_section_id'] ?? null,
                         'valve_number' => $valve['valve_number'] ?? 'V-01',
                         'name' => $valve['name'],
                         'duty' => $valve['duty'] ?? 'irrigation',
                         'description' => $valve['description'] ?? null,
-                    ]);
+                    ];
+                    if (!empty($valve['id']) && $existing = $location->valves()->find($valve['id'])) {
+                        $existing->update($valveData);
+                        $existingValveIds[] = $existing->id;
+                    } else {
+                        $newValve = $location->valves()->create($valveData);
+                        $existingValveIds[] = $newValve->id;
+                    }
                 }
             }
+            $location->valves()->whereNotIn('id', $existingValveIds)->delete();
         }
 
         return redirect()->back()->with('success', 'Üretim yeri detaylarıyla kaydedildi.');
@@ -314,15 +330,23 @@ class MasterDefinitionsController extends Controller
         }
 
         if ($request->has('subtypes') && is_array($request->subtypes)) {
-            $product->subtypes()->delete();
+            $existingSubtypeIds = [];
             foreach ($request->subtypes as $st) {
                 if (!empty($st['name'])) {
-                    $product->subtypes()->create([
+                    $stData = [
                         'name' => $st['name'],
                         'code' => $st['code'] ?? null,
-                    ]);
+                    ];
+                    if (!empty($st['id']) && $existing = $product->subtypes()->find($st['id'])) {
+                        $existing->update($stData);
+                        $existingSubtypeIds[] = $existing->id;
+                    } else {
+                        $newSt = $product->subtypes()->create($stData);
+                        $existingSubtypeIds[] = $newSt->id;
+                    }
                 }
             }
+            $product->subtypes()->whereNotIn('id', $existingSubtypeIds)->delete();
         }
 
         return redirect()->back()->with('success', 'Ürün kaydedildi.');

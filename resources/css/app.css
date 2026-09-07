@@ -74,12 +74,139 @@ html.dark .border-emerald-500 {
         padding: 0 !important;
         border: none !important;
         box-shadow: none !important;
-        background: white !important;
+        background: #ffffff !important;
+        color: #0f172a !important;
         z-index: 99999999 !important;
     }
     .no-print, nav, aside, header, footer, button {
         display: none !important;
     }
+}
+
+.print-document,
+html.dark .print-document,
+body.dark .print-document {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+}
+
+.print-document *,
+html.dark .print-document *,
+body.dark .print-document * {
+    color-scheme: light !important;
+}
+
+.print-document h1, .print-document h2, .print-document h3, .print-document h4,
+html.dark .print-document h1, html.dark .print-document h2, html.dark .print-document h3, html.dark .print-document h4,
+.print-document p, .print-document span, .print-document strong, .print-document b,
+html.dark .print-document p, html.dark .print-document span, html.dark .print-document strong, html.dark .print-document b {
+    color: #0f172a !important;
+}
+
+.print-document table,
+html.dark .print-document table {
+    background-color: #ffffff !important;
+    border-color: #0f172a !important;
+}
+
+.print-document thead,
+html.dark .print-document thead,
+.print-document th,
+html.dark .print-document th {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+    border-color: #0f172a !important;
+}
+
+.print-document td,
+html.dark .print-document td {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border-color: #0f172a !important;
+}
+
+.print-document .bg-slate-50,
+html.dark .print-document .bg-slate-50,
+.print-document .bg-slate-100,
+html.dark .print-document .bg-slate-100 {
+    background-color: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+}
+
+.print-document .bg-amber-50,
+html.dark .print-document .bg-amber-50 {
+    background-color: #fffbeb !important;
+    border-color: #fde68a !important;
+}
+.print-document .bg-amber-50 *,
+html.dark .print-document .bg-amber-50 * {
+    color: #92400e !important;
+}
+
+.print-document .bg-indigo-50,
+html.dark .print-document .bg-indigo-50 {
+    background-color: #eef2ff !important;
+    border-color: #c7d2fe !important;
+}
+.print-document .bg-indigo-50 *,
+html.dark .print-document .bg-indigo-50 * {
+    color: #3730a3 !important;
+}
+
+.print-document .bg-emerald-50,
+html.dark .print-document .bg-emerald-50 {
+    background-color: #ecfdf5 !important;
+    border-color: #a7f3d0 !important;
+}
+.print-document .bg-emerald-50 *,
+html.dark .print-document .bg-emerald-50 * {
+    color: #065f46 !important;
+}
+
+.print-document .text-slate-400,
+html.dark .print-document .text-slate-400 {
+    color: #94a3b8 !important;
+}
+
+.print-document .text-slate-500,
+html.dark .print-document .text-slate-500 {
+    color: #64748b !important;
+}
+
+.print-document .text-slate-600,
+html.dark .print-document .text-slate-600 {
+    color: #475569 !important;
+}
+
+.print-document .text-slate-700,
+html.dark .print-document .text-slate-700 {
+    color: #334155 !important;
+}
+
+.print-document .text-slate-800,
+html.dark .print-document .text-slate-800 {
+    color: #1e293b !important;
+}
+
+.print-document .text-slate-900,
+html.dark .print-document .text-slate-900 {
+    color: #0f172a !important;
+}
+
+.print-document .text-teal-800,
+html.dark .print-document .text-teal-800 {
+    color: #115e59 !important;
+}
+
+.print-document .text-emerald-700,
+html.dark .print-document .text-emerald-700 {
+    color: #047857 !important;
+}
+
+.print-document .text-indigo-900,
+html.dark .print-document .text-indigo-900 {
+    color: #312e81 !important;
 }
 
 html.dark input,

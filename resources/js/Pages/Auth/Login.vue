@@ -123,10 +123,6 @@ const submit = () => {
                         />
                         <span class="ms-2.5 text-xs text-zinc-300 font-medium">Beni Hatırla</span>
                     </label>
-
-                    <Link :href="route('register')" class="text-xs text-[#86a789] hover:underline font-medium">
-                        Yeni Hesap Aç
-                    </Link>
                 </div>
 
                 <div class="pt-2">

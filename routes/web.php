@@ -44,6 +44,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/customer-orders/{order}', [AgricultureController::class, 'destroyCustomerOrder'])->name('customer-orders.destroy');
         Route::delete('/shipment-deliveries/{shipment}', [AgricultureController::class, 'destroyShipmentDelivery'])->name('shipment-deliveries.destroy');
         Route::delete('/daily-work-sheets/{sheet}', [AgricultureController::class, 'destroyDailyWorkSheet'])->name('daily-work-sheets.destroy');
+        Route::delete('/market-prices/{price}', [AgricultureController::class, 'destroyMarketPrice'])->name('market-prices.destroy');
     });
 
     Route::prefix('definitions')->name('definitions.')->middleware('permission:tanimlamalar')->group(function () {
