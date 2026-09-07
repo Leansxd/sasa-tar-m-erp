@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, useForm, router, usePage } from '@inertiajs/vue3';
+import { useForm, router, usePage } from '@inertiajs/vue3';
 
 const props = defineProps<{
     activeCategory?: string;
