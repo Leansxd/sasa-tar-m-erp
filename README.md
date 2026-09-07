@@ -248,10 +248,18 @@ Gübreleme ve zirai ilaçlama için standart kimyasal formüller ve su kuyuları
    ```
    *(SQLite kullanacaksanız terminalde `touch database/database.sqlite` veya Windows'ta `New-Item database/database.sqlite` çalıştırın.)*
 
-6. **Veritabanı Tablolarını ve Başlangıç Verilerini Oluşturun:**
+6. **Veritabanını Kurun (2 Yöntemden Biri):**
+
+   *Yöntem 1: Laravel Artisan ile Otomatik Kurulum (Önerilen)*
    ```bash
    php artisan migrate --seed
    ```
+   *(Tüm tabloları ve hazır verileri sıfırdan otomatik yükler.)*
+
+   *Yöntem 2: SQL Dosyası ile İçe Aktarma (Navicat / DBeaver / phpMyAdmin)*
+   - Veritabanı yöneticinizde `sasa_tarim_erp` adında boş bir veritabanı oluşturun.
+   - Veritabanına sağ tıklayıp **Execute SQL File...** (veya *İçe Aktar / Import*) seçin.
+   - `database/sasa_tarim_erp.sql` dosyasını seçerek çalıştırın.
 
 7. **Storage Sembolik Linkini Oluşturun (Kantar ve Saha Fotoğrafları İçin):**
    ```bash
