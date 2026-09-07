@@ -195,17 +195,17 @@ Gübreleme ve zirai ilaçlama için standart kimyasal formüller ve su kuyuları
 ## 💻 Kurulum & Çalıştırma
 
 ### Gereksinimler
-- PHP >= 8.2
-- Composer
-- Node.js (>= 18.x) & NPM
-- MySQL / MariaDB / SQLite
+- **PHP** >= 8.2 (Eklentiler: `pdo_mysql`, `mbstring`, `fileinfo`, `gd`, `curl`)
+- **Composer**
+- **Node.js** (>= 18.x) & **NPM**
+- **MySQL** / MariaDB (veya SQLite)
 
 ### Adım Adım Kurulum
 
 1. **Depoyu Klonlayın:**
    ```bash
-   git clone https://github.com/kullanici/sasa-tarim-erp.git
-   cd sasa-tarim-erp
+   git clone https://github.com/Leansxd/sasa-tar-m-erp.git
+   cd sasa-tar-m-erp
    ```
 
 2. **PHP Bağımlılıklarını Yükleyin:**
@@ -220,11 +220,18 @@ Gübreleme ve zirai ilaçlama için standart kimyasal formüller ve su kuyuları
 
 4. **Ortam Dosyasını Hazırlayın:**
    ```bash
+   # Linux / macOS:
    cp .env.example .env
+
+   # Windows (PowerShell / CMD):
+   copy .env.example .env
+
    php artisan key:generate
    ```
 
 5. **Veritabanı Ayarlarını Yapın (`.env`):**
+
+   *Seçenek A: MySQL (Önerilen)*
    ```env
    DB_CONNECTION=mysql
    DB_HOST=127.0.0.1
@@ -233,28 +240,71 @@ Gübreleme ve zirai ilaçlama için standart kimyasal formüller ve su kuyuları
    DB_USERNAME=root
    DB_PASSWORD=
    ```
+   *(MySQL'de `sasa_tarim_erp` adında boş bir veritabanı oluşturduğunuzdan emin olun.)*
+
+   *Seçenek B: SQLite (Hızlı Test İçin)*
+   ```env
+   DB_CONNECTION=sqlite
+   ```
+   *(SQLite kullanacaksanız terminalde `touch database/database.sqlite` veya Windows'ta `New-Item database/database.sqlite` çalıştırın.)*
 
 6. **Veritabanı Tablolarını ve Başlangıç Verilerini Oluşturun:**
    ```bash
    php artisan migrate --seed
    ```
 
-7. **Storage Sembolik Linkini Oluşturun:**
+7. **Storage Sembolik Linkini Oluşturun (Kantar ve Saha Fotoğrafları İçin):**
    ```bash
    php artisan storage:link
    ```
 
-8. **Uygulamayı Başlatın:**
-   *Terminal 1 (Laravel Sunucusu):*
+8. **Arayüzü Derleyin veya Geliştirici Modunda Başlatın:**
+   ```bash
+   # Geliştirici modu (anlık güncelleme için):
+   npm run dev
+
+   # Veya üretim derlemesi:
+   npm run build
+   ```
+
+9. **Uygulama Sunucusunu Başlatın:**
    ```bash
    php artisan serve
    ```
-   *Terminal 2 (Vite Geliştirici Sunucusu):*
-   ```bash
-   npm run dev
-   ```
 
-Uygulama varsayılan olarak `http://localhost:8000` adresinde çalışacaktır.
+Uygulama varsayılan olarak `http://127.0.0.1:8000` adresinde çalışacaktır.
+
+---
+
+### 🔧 Sık Karşılaşılan Sorunlar ve Çözümleri
+
+- **Fotoğraflar Görünmüyor:** `php artisan storage:link` komutunu çalıştırdığınızdan ve `public/storage` kısayolunun oluştuğundan emin olun.
+- **Önbellek Sorunları:** Yapılandırma veya rota değişikliklerinde:
+  ```bash
+  php artisan optimize:clear
+  ```
+- **Vite Port Çakışması:** 5173 portu doluysa `npm run build` ile doğrudan derleyip sadece `php artisan serve` kullanabilirsiniz.
+
+---
+
+### 🔑 Varsayılan Giriş Bilgileri
+
+Veritabanı seeder'ı çalıştırıldığında aşağıdaki test hesapları hazır olarak oluşturulur:
+
+| Rol | E-Posta | Şifre | Yetki Kapsamı |
+|---|---|---|---|
+| **Yönetici (Admin)** | `admin@sasa.com` | `password` | Tam yetki, onaylama ve sistem tanımlamaları |
+| **Ziraat Mühendisi** | `ziraat.selin@sasa.com` | `password` | Tesis, Üretim ve Teknik modülleri |
+| **Saha Sorumlusu** | `saha.mustafa@sasa.com` | `password` | Operasyon ve Günlük İşçi Puantajı |
+
+---
+
+### 🧪 Testlerin Çalıştırılması
+
+Tüm backend birim ve entegrasyon testlerini çalıştırmak için:
+```bash
+php artisan test
+```
 
 ---
 
