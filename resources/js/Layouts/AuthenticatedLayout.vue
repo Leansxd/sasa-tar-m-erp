@@ -175,7 +175,7 @@ onMounted(() => {
     }
 
     const handleDocClick = (e: MouseEvent) => {
-        if (!(e.target as HTMLElement).closest('.group-dropdown-agriculture') && !(e.target as HTMLElement).closest('.group-dropdown-definitions')) {
+        if (!(e.target as HTMLElement).closest('.group-dropdown-agriculture') && !(e.target as HTMLElement).closest('.group-dropdown-definitions') && !(e.target as HTMLElement).closest('.group-dropdown-user')) {
             activeDropdown.value = null;
         }
     };
@@ -367,27 +367,44 @@ onMounted(() => {
                     <span class="text-[11px] font-medium hidden md:inline">{{ isDark ? 'Açık Mod' : 'Koyu Mod' }}</span>
                 </button>
 
-                <div class="flex items-center border-l border-slate-200 dark:border-slate-800 pl-2 sm:pl-4">
-                    <Dropdown align="right" width="48">
-                        <template #trigger>
-                            <button class="flex items-center space-x-2 sm:space-x-3 text-left focus:outline-none transition group cursor-pointer">
-                                <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-400 font-extrabold flex items-center justify-center text-sm border border-orange-200 dark:border-orange-900/50 group-hover:bg-orange-200 dark:group-hover:bg-orange-900/80 transition">
-                                    {{ $page.props.auth.user.name.charAt(0) }}
-                                </div>
-                                <div class="text-left hidden sm:block">
-                                    <span class="text-[10px] text-slate-400 block font-semibold leading-tight">Hoşgeldin,</span>
-                                    <span class="text-xs font-bold text-slate-800 dark:text-slate-100 block leading-tight group-hover:text-slate-900 dark:group-hover:text-white transition">{{ $page.props.auth.user.name }}</span>
-                                </div>
-                                <svg class="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                                </svg>
-                            </button>
-                        </template>
+                <div class="relative group-dropdown-user flex items-center border-l border-slate-200 dark:border-slate-800 pl-2 sm:pl-4">
+                    <button
+                        @click="toggleMenu('user')"
+                        type="button"
+                        class="flex items-center space-x-2 sm:space-x-3 text-left focus:outline-none transition group cursor-pointer"
+                    >
+                        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-400 font-extrabold flex items-center justify-center text-sm border border-orange-200 dark:border-orange-900/50 group-hover:bg-orange-200 dark:group-hover:bg-orange-900/80 transition">
+                            {{ $page.props.auth.user.name.charAt(0) }}
+                        </div>
+                        <div class="text-left hidden sm:block">
+                            <span class="text-[10px] text-slate-400 block font-semibold leading-tight">Hoşgeldin,</span>
+                            <span class="text-xs font-bold text-slate-800 dark:text-slate-100 block leading-tight group-hover:text-slate-900 dark:group-hover:text-white transition">{{ $page.props.auth.user.name }}</span>
+                        </div>
+                        <svg class="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition" :class="activeDropdown === 'user' ? 'rotate-180 text-orange-500' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
 
-                        <template #content>
-                            <DropdownLink :href="route('logout')" method="post" as="button">Çıkış Yap</DropdownLink>
-                        </template>
-                    </Dropdown>
+                    <div
+                        v-show="activeDropdown === 'user'"
+                        class="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-50 transition-all duration-150"
+                    >
+                        <div class="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800">
+                            <div class="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate">{{ $page.props.auth.user.name }}</div>
+                            <div class="text-[10px] text-slate-400 truncate">{{ $page.props.auth.user.email }}</div>
+                        </div>
+                        <Link
+                            :href="route('logout')"
+                            method="post"
+                            as="button"
+                            class="w-full text-left px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/60 transition flex items-center gap-2 cursor-pointer"
+                        >
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                            </svg>
+                            <span>Çıkış Yap</span>
+                        </Link>
+                    </div>
                 </div>
             </div>
         </header>
