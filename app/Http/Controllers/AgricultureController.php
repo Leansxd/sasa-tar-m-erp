@@ -91,7 +91,7 @@ class AgricultureController extends Controller
             $waterSourcesQuery->whereHas('productionLocation', fn ($sq) => $sq->whereIn('company_id', $companyIds));
         }
 
-        return inertia('Agriculture/Index', [
+        $data = [
             'activeCategory' => $category,
             'activeModule' => $module,
             'companies' => $companiesQuery->get(),
@@ -107,18 +107,50 @@ class AgricultureController extends Controller
             'sprayRecipes' => SprayingRecipe::with('items')->get(),
             'waterSources' => $waterSourcesQuery->get(),
             'packagings' => PackagingDefinition::all(),
-            'marketPrices' => MarketPrice::with('product')->latest()->get(),
-            'workPlans' => $workPlansQuery->latest()->get(),
-            'fertRuns' => FertilizationRun::with(['recipe.tanks.items', 'tankLogs.preparedBy', 'tankLogs.tank'])->latest()->get(),
-            'irrigationSchedules' => IrrigationSchedule::with(['recipe', 'valves.valve', 'valves.location'])->latest()->get(),
-            'sprayApplications' => SprayingApplication::with(['recipe', 'appliedBy'])->latest()->get(),
-            'waterAnalysisLogs' => WaterAnalysisLog::with('waterSource')->latest()->get(),
-            'rawWaterControls' => RawWaterControl::with('waterSource')->latest()->get(),
-            'purificationControls' => PurificationControl::with('waterSource')->latest()->get(),
-            'customerOrders' => CustomerOrder::with(['tradingParty', 'items.product', 'items.packaging', 'shipments'])->latest()->get(),
-            'shipments' => ShipmentDelivery::with(['order', 'tradingParty', 'product', 'packaging', 'deliveryType'])->latest()->get(),
-            'dailyWorkSheets' => $dailyWorkSheetsQuery->orderBy('work_date', 'desc')->orderBy('id', 'desc')->get(),
-        ]);
+            
+            'marketPrices' => [],
+            'workPlans' => [],
+            'fertRuns' => [],
+            'irrigationSchedules' => [],
+            'sprayApplications' => [],
+            'waterAnalysisLogs' => [],
+            'rawWaterControls' => [],
+            'purificationControls' => [],
+            'customerOrders' => [],
+            'shipments' => [],
+            'dailyWorkSheets' => [],
+        ];
+
+        if ($module === 'is_planlama') {
+            $data['workPlans'] = $workPlansQuery->latest()->get();
+        } elseif ($module === 'gubreleme') {
+            $data['fertRuns'] = FertilizationRun::with(['recipe.tanks.items', 'tankLogs.preparedBy', 'tankLogs.tank'])->latest()->get();
+        } elseif ($module === 'sulama') {
+            $data['irrigationSchedules'] = IrrigationSchedule::with(['recipe', 'valves.valve', 'valves.location'])->latest()->get();
+        } elseif ($module === 'ilaclama') {
+            $data['sprayApplications'] = SprayingApplication::with(['recipe', 'appliedBy'])->latest()->get();
+        } elseif ($module === 'su_analizleri') {
+            $data['waterAnalysisLogs'] = WaterAnalysisLog::with('waterSource')->latest()->get();
+        } elseif ($module === 'kaynak_suyu_kontrol') {
+            $data['rawWaterControls'] = RawWaterControl::with('waterSource')->latest()->get();
+        } elseif ($module === 'aritma_suyu_kontrol') {
+            $data['purificationControls'] = PurificationControl::with('waterSource')->latest()->get();
+        } elseif ($module === 'alinan_siparis') {
+            $data['customerOrders'] = CustomerOrder::with(['tradingParty', 'items.product', 'items.packaging', 'shipments'])->latest()->get();
+        } elseif ($module === 'sevkiyat_teslimat') {
+            $data['shipments'] = ShipmentDelivery::with(['order', 'tradingParty', 'product', 'packaging', 'deliveryType'])->latest()->get();
+            $data['customerOrders'] = CustomerOrder::with(['tradingParty', 'items.product', 'items.packaging', 'shipments'])->latest()->get();
+        } elseif ($module === 'gunluk_isci_formu') {
+            $data['dailyWorkSheets'] = $dailyWorkSheetsQuery->orderBy('work_date', 'desc')->orderBy('id', 'desc')->get();
+            $data['marketPrices'] = MarketPrice::with('product')->latest()->get();
+        } elseif ($category === 'raporlar') {
+            $data['dailyWorkSheets'] = $dailyWorkSheetsQuery->orderBy('work_date', 'desc')->orderBy('id', 'desc')->get();
+            $data['shipments'] = ShipmentDelivery::with(['order', 'tradingParty', 'product', 'packaging', 'deliveryType'])->latest()->get();
+            $data['customerOrders'] = CustomerOrder::with(['tradingParty', 'items.product', 'items.packaging', 'shipments'])->latest()->get();
+            $data['marketPrices'] = MarketPrice::with('product')->latest()->get();
+        }
+
+        return inertia('Agriculture/Index', $data);
     }
 
     public function storeWorkPlan(Request $request): RedirectResponse

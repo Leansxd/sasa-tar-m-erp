@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { useForm, router, usePage } from '@inertiajs/vue3';
+import { useForm, router, usePage, Head } from '@inertiajs/vue3';
 
 const props = defineProps<{
     activeCategory?: string;
@@ -1570,7 +1570,7 @@ const handleApproval = (id: number, action: string) => {
 </script>
 
 <template>
-    <Head title="Tarım Operasyonları" />
+    <Head :title="(filteredMenuHierarchy.flatMap(g => g.items).find(i => i.key === currentMod)?.label || 'Genel') + ' - Tarım Operasyonları'" />
 
     <AuthenticatedLayout>
         <template #header>
