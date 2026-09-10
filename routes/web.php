@@ -1,6 +1,16 @@
 <?php
 
 use App\Http\Controllers\AgricultureController;
+use App\Http\Controllers\Agriculture\WorkPlanController;
+use App\Http\Controllers\Agriculture\FertilizationController;
+use App\Http\Controllers\Agriculture\IrrigationController;
+use App\Http\Controllers\Agriculture\SprayingController;
+use App\Http\Controllers\Agriculture\WaterControlController;
+use App\Http\Controllers\Agriculture\CustomerOrderController;
+use App\Http\Controllers\Agriculture\ShipmentController;
+use App\Http\Controllers\Agriculture\DailyWorkSheetController;
+use App\Http\Controllers\Agriculture\MarketPriceController;
+
 use App\Http\Controllers\MasterDefinitionsController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
@@ -15,36 +25,47 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('agriculture')->name('agriculture.')->group(function () {
         Route::get('/', [AgricultureController::class, 'index'])->name('index');
-        Route::post('/work-plans', [AgricultureController::class, 'storeWorkPlan'])->name('work-plans.store');
-        Route::post('/work-plans/comment', [AgricultureController::class, 'storeWorkPlanComment'])->name('work-plans.comment');
-        Route::post('/fertilization-runs', [AgricultureController::class, 'storeFertilizationRun'])->name('fertilization-runs.store');
-        Route::post('/fertilization-runs/{run}/toggle-active', [AgricultureController::class, 'toggleActiveFertilizationRun'])->name('fertilization-runs.toggle-active');
-        Route::post('/fertilization-tank-logs', [AgricultureController::class, 'storeFertilizationTankLog'])->name('fertilization-tank-logs.store');
-        Route::post('/irrigation-schedules', [AgricultureController::class, 'storeIrrigationSchedule'])->name('irrigation-schedules.store');
-        Route::post('/spraying-applications', [AgricultureController::class, 'storeSprayingApplication'])->name('spraying-applications.store');
-        Route::post('/water-analyses', [AgricultureController::class, 'storeWaterAnalysis'])->name('water-analyses.store');
-        Route::post('/raw-water-controls', [AgricultureController::class, 'storeRawWaterControl'])->name('raw-water-controls.store');
-        Route::post('/purification-controls', [AgricultureController::class, 'storePurificationControl'])->name('purification-controls.store');
-        Route::post('/customer-orders', [AgricultureController::class, 'storeCustomerOrder'])->name('customer-orders.store');
-        Route::put('/customer-orders/{order}', [AgricultureController::class, 'updateCustomerOrder'])->name('customer-orders.update');
-        Route::patch('/customer-orders/{order}/status', [AgricultureController::class, 'updateOrderStatus'])->name('customer-orders.update-status');
-        Route::post('/shipment-deliveries', [AgricultureController::class, 'storeShipmentDelivery'])->name('shipment-deliveries.store');
-        Route::patch('/shipment-deliveries/{shipment}/status', [AgricultureController::class, 'updateShipmentStatus'])->name('shipment-deliveries.update-status');
-        Route::post('/market-prices', [AgricultureController::class, 'storeMarketPrice'])->name('market-prices.store');
-        Route::post('/daily-work-sheets', [AgricultureController::class, 'storeDailyWorkSheet'])->name('daily-work-sheets.store');
-        Route::patch('/daily-work-sheets/harvest-items/{item}/banana-weights', [AgricultureController::class, 'updateBananaWeights'])->name('daily-work-sheets.update-banana-weights');
-        Route::post('/daily-work-sheets/{sheet}/approve', [AgricultureController::class, 'approveDailyWorkSheet'])->name('daily-work-sheets.approve');
-        Route::delete('/work-plans/{workPlan}', [AgricultureController::class, 'destroyWorkPlan'])->name('work-plans.destroy');
-        Route::delete('/fertilization-runs/{run}', [AgricultureController::class, 'destroyFertilizationRun'])->name('fertilization-runs.destroy');
-        Route::delete('/irrigation-schedules/{schedule}', [AgricultureController::class, 'destroyIrrigationSchedule'])->name('irrigation-schedules.destroy');
-        Route::delete('/spraying-applications/{app}', [AgricultureController::class, 'destroySprayingApplication'])->name('spraying-applications.destroy');
-        Route::delete('/water-analyses/{log}', [AgricultureController::class, 'destroyWaterAnalysis'])->name('water-analyses.destroy');
-        Route::delete('/raw-water-controls/{control}', [AgricultureController::class, 'destroyRawWaterControl'])->name('raw-water-controls.destroy');
-        Route::delete('/purification-controls/{control}', [AgricultureController::class, 'destroyPurificationControl'])->name('purification-controls.destroy');
-        Route::delete('/customer-orders/{order}', [AgricultureController::class, 'destroyCustomerOrder'])->name('customer-orders.destroy');
-        Route::delete('/shipment-deliveries/{shipment}', [AgricultureController::class, 'destroyShipmentDelivery'])->name('shipment-deliveries.destroy');
-        Route::delete('/daily-work-sheets/{sheet}', [AgricultureController::class, 'destroyDailyWorkSheet'])->name('daily-work-sheets.destroy');
-        Route::delete('/market-prices/{price}', [AgricultureController::class, 'destroyMarketPrice'])->name('market-prices.destroy');
+        
+        Route::post('/work-plans', [WorkPlanController::class, 'storeWorkPlan'])->name('work-plans.store');
+        Route::post('/work-plans/comment', [WorkPlanController::class, 'storeWorkPlanComment'])->name('work-plans.comment');
+        Route::delete('/work-plans/{workPlan}', [WorkPlanController::class, 'destroyWorkPlan'])->name('work-plans.destroy');
+
+        Route::post('/fertilization-runs', [FertilizationController::class, 'storeFertilizationRun'])->name('fertilization-runs.store');
+        Route::post('/fertilization-runs/{run}/toggle-active', [FertilizationController::class, 'toggleActiveFertilizationRun'])->name('fertilization-runs.toggle-active');
+        Route::post('/fertilization-tank-logs', [FertilizationController::class, 'storeFertilizationTankLog'])->name('fertilization-tank-logs.store');
+        Route::delete('/fertilization-runs/{run}', [FertilizationController::class, 'destroyFertilizationRun'])->name('fertilization-runs.destroy');
+
+        Route::post('/irrigation-schedules', [IrrigationController::class, 'storeIrrigationSchedule'])->name('irrigation-schedules.store');
+        Route::delete('/irrigation-schedules/{schedule}', [IrrigationController::class, 'destroyIrrigationSchedule'])->name('irrigation-schedules.destroy');
+
+        Route::post('/spraying-applications', [SprayingController::class, 'storeSprayingApplication'])->name('spraying-applications.store');
+        Route::delete('/spraying-applications/{app}', [SprayingController::class, 'destroySprayingApplication'])->name('spraying-applications.destroy');
+
+        Route::post('/water-analyses', [WaterControlController::class, 'storeWaterAnalysis'])->name('water-analyses.store');
+        Route::delete('/water-analyses/{log}', [WaterControlController::class, 'destroyWaterAnalysis'])->name('water-analyses.destroy');
+
+        Route::post('/raw-water-controls', [WaterControlController::class, 'storeRawWaterControl'])->name('raw-water-controls.store');
+        Route::delete('/raw-water-controls/{control}', [WaterControlController::class, 'destroyRawWaterControl'])->name('raw-water-controls.destroy');
+
+        Route::post('/purification-controls', [WaterControlController::class, 'storePurificationControl'])->name('purification-controls.store');
+        Route::delete('/purification-controls/{control}', [WaterControlController::class, 'destroyPurificationControl'])->name('purification-controls.destroy');
+
+        Route::post('/customer-orders', [CustomerOrderController::class, 'storeCustomerOrder'])->name('customer-orders.store');
+        Route::put('/customer-orders/{order}', [CustomerOrderController::class, 'updateCustomerOrder'])->name('customer-orders.update');
+        Route::patch('/customer-orders/{order}/status', [CustomerOrderController::class, 'updateOrderStatus'])->name('customer-orders.update-status');
+        Route::delete('/customer-orders/{order}', [CustomerOrderController::class, 'destroyCustomerOrder'])->name('customer-orders.destroy');
+
+        Route::post('/shipment-deliveries', [ShipmentController::class, 'storeShipmentDelivery'])->name('shipment-deliveries.store');
+        Route::patch('/shipment-deliveries/{shipment}/status', [ShipmentController::class, 'updateShipmentStatus'])->name('shipment-deliveries.update-status');
+        Route::delete('/shipment-deliveries/{shipment}', [ShipmentController::class, 'destroyShipmentDelivery'])->name('shipment-deliveries.destroy');
+
+        Route::post('/daily-work-sheets', [DailyWorkSheetController::class, 'storeDailyWorkSheet'])->name('daily-work-sheets.store');
+        Route::patch('/daily-work-sheets/harvest-items/{item}/banana-weights', [DailyWorkSheetController::class, 'updateBananaWeights'])->name('daily-work-sheets.update-banana-weights');
+        Route::post('/daily-work-sheets/{sheet}/approve', [DailyWorkSheetController::class, 'approveDailyWorkSheet'])->name('daily-work-sheets.approve');
+        Route::delete('/daily-work-sheets/{sheet}', [DailyWorkSheetController::class, 'destroyDailyWorkSheet'])->name('daily-work-sheets.destroy');
+
+        Route::post('/market-prices', [MarketPriceController::class, 'storeMarketPrice'])->name('market-prices.store');
+        Route::delete('/market-prices/{price}', [MarketPriceController::class, 'destroyMarketPrice'])->name('market-prices.destroy');
     });
 
     Route::prefix('definitions')->name('definitions.')->middleware('permission:tanimlamalar')->group(function () {

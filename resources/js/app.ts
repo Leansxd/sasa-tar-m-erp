@@ -16,8 +16,11 @@ createInertiaApp({
             import.meta.glob<DefineComponent>('./Pages/**/*.vue'),
         ),
     setup({ el, App, props, plugin }) {
-        createApp({ render: () => h(App, props) })
-            .use(plugin)
+        const app = createApp({ render: () => h(App, props) });
+        app.config.errorHandler = (err, instance, info) => {
+            console.error('Arayüz Hatası:', err, info);
+        };
+        app.use(plugin)
             .use(ZiggyVue)
             .mount(el);
     },

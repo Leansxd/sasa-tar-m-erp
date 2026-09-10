@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useForm, router, usePage, Head } from '@inertiajs/vue3';
 
@@ -34,6 +34,13 @@ const props = defineProps<{
 
 const currentCat = ref(props.activeCategory || 'tesis');
 const currentMod = ref(props.activeModule || 'is_planlama');
+
+watch(() => props.activeCategory, (val) => {
+    if (val) currentCat.value = val;
+});
+watch(() => props.activeModule, (val) => {
+    if (val) currentMod.value = val;
+});
 
 const showModal = ref(false);
 const modalType = ref('');
@@ -1218,7 +1225,7 @@ const selectModule = (catKey: string, modKey: string) => {
     currentCat.value = catKey;
     currentMod.value = modKey;
     openDropdown.value = null;
-    router.get(route('agriculture.index'), { cat: catKey, mod: modKey }, { preserveState: true });
+    router.get(route('agriculture.index'), { cat: catKey, mod: modKey }, { preserveState: false, preserveScroll: true });
 };
 
 onMounted(() => {

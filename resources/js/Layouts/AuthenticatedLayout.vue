@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { Link, usePage, router } from '@inertiajs/vue3';
 
 const page = usePage();
@@ -8,6 +8,19 @@ const isAdmin = computed(() => !!(page.props.auth as any)?.is_admin);
 
 const hasPermission = (mod: string) => isAdmin.value || permissions.value.includes(mod);
 const canSeeAgriculture = computed(() => isAdmin.value || ['tesis', 'uretim', 'teknik', 'operasyon', 'raporlar'].some(m => permissions.value.includes(m)));
+
+const flashSuccess = computed(() => (page.props.flash as any)?.success);
+const flashError = computed(() => (page.props.flash as any)?.error || (page.props.errors as any)?.error);
+const showFlash = ref(true);
+
+watch([flashSuccess, flashError], () => {
+    showFlash.value = true;
+    if (flashSuccess.value) {
+        setTimeout(() => {
+            showFlash.value = false;
+        }, 4000);
+    }
+});
 
 const isMobileMenuOpen = ref(false);
 const isDark = ref(false);
@@ -414,7 +427,27 @@ onMounted(() => {
             <slot name="header" />
         </div>
 
-        <!-- İÇERİK ALANI (%100 TAM GENİŞLİK ÇALIŞMA ALANI) -->
+        <div v-if="showFlash && (flashSuccess || flashError)" class="fixed top-5 right-5 z-50 max-w-md w-full transition-all duration-300">
+            <div v-if="flashSuccess" class="flex items-center gap-3 p-4 rounded-xl bg-emerald-600 text-white shadow-xl">
+                <svg class="w-6 h-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <div class="text-sm font-medium flex-1">{{ flashSuccess }}</div>
+                <button @click="showFlash = false" class="p-1 hover:bg-emerald-700 rounded-lg">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div v-if="flashError" class="flex items-center gap-3 p-4 rounded-xl bg-rose-600 text-white shadow-xl">
+                <svg class="w-6 h-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div class="text-sm font-medium flex-1">{{ flashError }}</div>
+                <button @click="showFlash = false" class="p-1 hover:bg-rose-700 rounded-lg">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+        </div>
+
         <main class="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
             <slot />
         </main>

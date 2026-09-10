@@ -14,6 +14,7 @@ use App\Models\WorkPlan;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -44,34 +45,45 @@ class DashboardController extends Controller
         $inProgressPlans = (clone $workPlanQuery)->where('status', 'in_progress')->count();
         $completedPlans = (clone $workPlanQuery)->where('status', 'completed')->count();
 
-        $allSheetsQuery = DailyWorkSheet::with([
-            'company',
-            'productionLocation.company',
-            'crewLeaders.crewLeader',
-            'harvestItems.product'
-        ])->where('status', 'approved');
-
+        $allSheetsQuery = DailyWorkSheet::where('status', 'approved');
         if ($companyIds !== null) {
             $allSheetsQuery->whereIn('company_id', $companyIds);
         }
 
-        $allApprovedSheets = $hasReports ? $allSheetsQuery->orderBy('work_date', 'asc')->get() : collect();
+        if ($hasReports) {
+            $today = Carbon::today()->toDateString();
+            $sevenDaysAgo = Carbon::today()->subDays(6)->toDateString();
+            $thirtyDaysAgo = Carbon::today()->subDays(29)->toDateString();
 
-        $todayStr = Carbon::today()->toDateString();
-        $sevenDaysAgo = Carbon::today()->subDays(6)->toDateString();
-        $thirtyDaysAgo = Carbon::today()->subDays(29)->toDateString();
+            $analytics = [
+                'today' => $this->calculatePeriodMetrics((clone $allSheetsQuery)->where('work_date', '=', $today)),
+                'week' => $this->calculatePeriodMetrics((clone $allSheetsQuery)->where('work_date', '>=', $sevenDaysAgo)),
+                'month' => $this->calculatePeriodMetrics((clone $allSheetsQuery)->where('work_date', '>=', $thirtyDaysAgo)),
+                'all' => $this->calculatePeriodMetrics((clone $allSheetsQuery)),
+            ];
 
-        $analytics = [
-            'today' => $this->calculatePeriodMetrics($allApprovedSheets->filter(fn ($s) => $s->work_date->toDateString() === $todayStr)),
-            'week' => $this->calculatePeriodMetrics($allApprovedSheets->filter(fn ($s) => $s->work_date->toDateString() >= $sevenDaysAgo)),
-            'month' => $this->calculatePeriodMetrics($allApprovedSheets->filter(fn ($s) => $s->work_date->toDateString() >= $thirtyDaysAgo)),
-            'all' => $this->calculatePeriodMetrics($allApprovedSheets),
-        ];
+            $dailyTrends = $this->calculateDailyTrends((clone $allSheetsQuery));
+            
+            // Recent items still need models
+            $recentSheets = (clone $allSheetsQuery)
+                ->with(['company', 'productionLocation', 'crewLeaders.crewLeader', 'harvestItems.product'])
+                ->orderBy('work_date', 'desc')
+                ->take(5)
+                ->get();
+                
+            $recentOrders = CustomerOrder::with('tradingParty')->latest()->take(5)->get();
+        } else {
+            $analytics = [
+                'today' => $this->getEmptyMetrics(),
+                'week' => $this->getEmptyMetrics(),
+                'month' => $this->getEmptyMetrics(),
+                'all' => $this->getEmptyMetrics(),
+            ];
+            $dailyTrends = [];
+            $recentSheets = [];
+            $recentOrders = [];
+        }
 
-        $dailyTrends = $this->calculateDailyTrends($allApprovedSheets);
-
-        $recentSheets = $hasReports ? $allApprovedSheets->sortByDesc('work_date')->take(5)->values() : [];
-        $recentOrders = $hasReports ? CustomerOrder::with('tradingParty')->latest()->take(5)->get() : [];
         $recentMarketPrices = MarketPrice::with('product')->latest()->take(4)->get();
         $pressureWarnings = PurificationControl::where('has_warning', true)->count();
 
@@ -127,95 +139,124 @@ class DashboardController extends Controller
         ]);
     }
 
-    private function calculatePeriodMetrics($sheets): array
+    private function getEmptyMetrics(): array
     {
-        $revenue = 0.0;
-        $harvestKg = 0.0;
-        $laborWage = 0.0;
-        $travelFee = 0.0;
-        $mealFee = 0.0;
-        $totalCost = 0.0;
+        return [
+            'revenue' => 0, 'harvest_kg' => 0, 'labor_wage' => 0, 'travel_fee' => 0,
+            'meal_fee' => 0, 'total_cost' => 0, 'net_profit' => 0, 'profit_margin' => 0,
+            'avg_revenue_per_kg' => 0, 'avg_cost_per_kg' => 0, 'avg_profit_per_kg' => 0,
+            'products' => [], 'locations' => [], 'crew_leaders' => [],
+        ];
+    }
+
+    private function calculatePeriodMetrics($query): array
+    {
+        $sheetIds = $query->pluck('id')->toArray();
+        if (empty($sheetIds)) {
+            return $this->getEmptyMetrics();
+        }
+
+        // 1. Revenue & Harvest Kg (Aggregate)
+        // Check if total_revenue is > 0, otherwise fallback to quantity * unit_price
+        $revenueData = DailyWorkSheetHarvestItem::whereIn('daily_work_sheet_id', $sheetIds)
+            ->selectRaw('
+                SUM(quantity) as total_kg,
+                SUM(CASE WHEN total_revenue > 0 THEN total_revenue ELSE quantity * unit_price END) as total_rev
+            ')->first();
+
+        $revenue = (float) ($revenueData->total_rev ?? 0);
+        $harvestKg = (float) ($revenueData->total_kg ?? 0);
+
+        // 2. Costs (Aggregate)
+        $costData = DailyWorkSheetCrewLeader::whereIn('daily_work_sheet_id', $sheetIds)
+            ->selectRaw('
+                SUM(calculated_wage_total) as labor_wage,
+                SUM(travel_fee * car_count) as travel_fee,
+                SUM(meal_fee) as meal_fee
+            ')->first();
+
+        $laborWage = (float) ($costData->labor_wage ?? 0);
+        $travelFee = (float) ($costData->travel_fee ?? 0);
+        $mealFee = (float) ($costData->meal_fee ?? 0);
+        $totalCost = $laborWage + $travelFee + $mealFee;
+
+        // 3. Products Grouping
+        $productsRaw = DailyWorkSheetHarvestItem::whereIn('daily_work_sheet_id', $sheetIds)
+            ->with('product')
+            ->selectRaw('
+                product_id,
+                SUM(quantity) as total_kg,
+                SUM(CASE WHEN total_revenue > 0 THEN total_revenue ELSE quantity * unit_price END) as total_rev
+            ')
+            ->groupBy('product_id')
+            ->get();
 
         $productMap = [];
-        $locationMap = [];
+        foreach ($productsRaw as $p) {
+            $kg = (float) $p->total_kg;
+            $rev = (float) $p->total_rev;
+            $ratio = $harvestKg > 0 ? ($kg / $harvestKg) : 0;
+            $estCost = round($totalCost * $ratio, 2);
+            $profit = round($rev - $estCost, 2);
+
+            $productMap[] = [
+                'name' => $p->product->name ?? 'Genel Ürün',
+                'code' => $p->product->code ?? '-',
+                'kg' => round($kg, 2),
+                'revenue' => round($rev, 2),
+                'estimated_cost' => $estCost,
+                'profit' => $profit,
+                'margin' => $rev > 0 ? round(($profit / $rev) * 100, 1) : 0.0,
+            ];
+        }
+
+        // 4. Crew Leaders Grouping
+        $crewsRaw = DailyWorkSheetCrewLeader::whereIn('daily_work_sheet_id', $sheetIds)
+            ->with('crewLeader')
+            ->selectRaw('
+                crew_leader_id,
+                SUM(worker_count) as worker_count,
+                COUNT(id) as shift_count,
+                SUM(calculated_wage_total) as wage_total,
+                SUM(travel_fee * car_count) as travel_total,
+                SUM(meal_fee) as meal_total
+            ')
+            ->groupBy('crew_leader_id')
+            ->get();
+
         $crewLeaderMap = [];
+        foreach ($crewsRaw as $c) {
+            $wage = (float) $c->wage_total;
+            $travel = (float) $c->travel_total;
+            $meal = (float) $c->meal_total;
+            $clName = $c->crewLeader ? ($c->crewLeader->first_name . ' ' . $c->crewLeader->last_name) : 'Diğer / Tanımsız';
 
-        foreach ($sheets as $sheet) {
-            $sheetLabor = 0.0;
-            $sheetTravel = 0.0;
-            $sheetMeal = 0.0;
+            $crewLeaderMap[] = [
+                'name' => $clName,
+                'origin_city' => $c->crewLeader->origin_city ?? '-',
+                'worker_count' => (int) $c->worker_count,
+                'shift_count' => (int) $c->shift_count,
+                'wage_total' => round($wage, 2),
+                'travel_total' => round($travel, 2),
+                'meal_total' => round($meal, 2),
+                'total_cost' => round($wage + $travel + $meal, 2),
+            ];
+        }
 
-            foreach ($sheet->crewLeaders as $clRow) {
-                $cWage = (float) ($clRow->calculated_wage_total ?? 0);
-                $cTravel = (float) (($clRow->travel_fee ?? 0) * ($clRow->car_count ?? 0));
-                $cMeal = (float) ($clRow->meal_fee ?? 0);
-
-                $sheetLabor += $cWage;
-                $sheetTravel += $cTravel;
-                $sheetMeal += $cMeal;
-
-                $clName = $clRow->crewLeader ? ($clRow->crewLeader->first_name . ' ' . $clRow->crewLeader->last_name) : 'Diğer / Tanımsız';
-                if (!isset($crewLeaderMap[$clName])) {
-                    $crewLeaderMap[$clName] = [
-                        'name' => $clName,
-                        'origin_city' => $clRow->crewLeader->origin_city ?? '-',
-                        'worker_count' => 0,
-                        'shift_count' => 0,
-                        'wage_total' => 0.0,
-                        'travel_total' => 0.0,
-                        'meal_total' => 0.0,
-                        'total_cost' => 0.0,
-                    ];
-                }
-                $crewLeaderMap[$clName]['worker_count'] += (int) ($clRow->worker_count ?? 0);
-                $crewLeaderMap[$clName]['shift_count'] += 1;
-                $crewLeaderMap[$clName]['wage_total'] += $cWage;
-                $crewLeaderMap[$clName]['travel_total'] += $cTravel;
-                $crewLeaderMap[$clName]['meal_total'] += $cMeal;
-                $crewLeaderMap[$clName]['total_cost'] += $cWage + $cTravel + $cMeal;
-            }
-
-            $laborWage += $sheetLabor;
-            $travelFee += $sheetTravel;
-            $mealFee += $sheetMeal;
-            $sheetCost = $sheetLabor + $sheetTravel + $sheetMeal;
-            $totalCost += $sheetCost;
-
-            $sheetRevenue = 0.0;
-            $sheetKg = 0.0;
-
-            foreach ($sheet->harvestItems as $hItem) {
-                $kg = (float) ($hItem->quantity ?? 0);
-                $rev = (float) ($hItem->total_revenue ?? 0);
-                if ($rev <= 0 && $kg > 0) {
-                    $rev = $kg * (float) ($hItem->unit_price ?? 0);
-                }
-
-                $sheetRevenue += $rev;
-                $sheetKg += $kg;
-                $revenue += $rev;
-                $harvestKg += $kg;
-
-                $pName = $hItem->product->name ?? 'Genel Ürün';
-                $pCode = $hItem->product->code ?? '-';
-                if (!isset($productMap[$pName])) {
-                    $productMap[$pName] = [
-                        'name' => $pName,
-                        'code' => $pCode,
-                        'kg' => 0.0,
-                        'revenue' => 0.0,
-                        'estimated_cost' => 0.0,
-                        'profit' => 0.0,
-                    ];
-                }
-                $productMap[$pName]['kg'] += $kg;
-                $productMap[$pName]['revenue'] += $rev;
-            }
-
+        // Locations grouping requires joining sheets with harvest and costs,
+        // For simplicity and speed without complex joins, we can query sheets directly
+        // and loop, but since sheet IDs are limited, we can eager load just what's needed
+        $locationSheets = DailyWorkSheet::whereIn('id', $sheetIds)
+            ->with(['productionLocation.company', 'harvestItems', 'crewLeaders'])
+            ->get();
+            
+        $locMapArr = [];
+        foreach ($locationSheets as $sheet) {
             $locName = $sheet->productionLocation->name ?? 'Tesis';
-            $compName = $sheet->company->name ?? 'SASA';
-            if (!isset($locationMap[$locName])) {
-                $locationMap[$locName] = [
+            $compName = $sheet->productionLocation->company->name ?? 'SASA';
+            
+            if (!isset($locMapArr[$locName])) {
+                $locMapArr[$locName] = [
                     'name' => $locName,
                     'company' => $compName,
                     'kg' => 0.0,
@@ -224,10 +265,21 @@ class DashboardController extends Controller
                     'profit' => 0.0,
                 ];
             }
-            $locationMap[$locName]['kg'] += $sheetKg;
-            $locationMap[$locName]['revenue'] += $sheetRevenue;
-            $locationMap[$locName]['cost'] += $sheetCost;
-            $locationMap[$locName]['profit'] += ($sheetRevenue - $sheetCost);
+            
+            $sRev = 0; $sKg = 0; $sCost = 0;
+            foreach ($sheet->harvestItems as $hi) {
+                $sKg += (float) $hi->quantity;
+                $r = (float) $hi->total_revenue;
+                $sRev += ($r > 0) ? $r : ((float) $hi->quantity * (float) $hi->unit_price);
+            }
+            foreach ($sheet->crewLeaders as $cl) {
+                $sCost += (float) $cl->calculated_wage_total + ((float) $cl->travel_fee * (int) $cl->car_count) + (float) $cl->meal_fee;
+            }
+            
+            $locMapArr[$locName]['kg'] += $sKg;
+            $locMapArr[$locName]['revenue'] += $sRev;
+            $locMapArr[$locName]['cost'] += $sCost;
+            $locMapArr[$locName]['profit'] += ($sRev - $sCost);
         }
 
         $netProfit = $revenue - $totalCost;
@@ -235,13 +287,6 @@ class DashboardController extends Controller
         $avgRevenuePerKg = $harvestKg > 0 ? round($revenue / $harvestKg, 2) : 0.0;
         $avgCostPerKg = $harvestKg > 0 ? round($totalCost / $harvestKg, 2) : 0.0;
         $avgProfitPerKg = round($avgRevenuePerKg - $avgCostPerKg, 2);
-
-        foreach ($productMap as $k => $p) {
-            $ratio = $harvestKg > 0 ? ($p['kg'] / $harvestKg) : 0;
-            $productMap[$k]['estimated_cost'] = round($totalCost * $ratio, 2);
-            $productMap[$k]['profit'] = round($p['revenue'] - $productMap[$k]['estimated_cost'], 2);
-            $productMap[$k]['margin'] = $p['revenue'] > 0 ? round(($productMap[$k]['profit'] / $p['revenue']) * 100, 1) : 0.0;
-        }
 
         return [
             'revenue' => round($revenue, 2),
@@ -255,43 +300,70 @@ class DashboardController extends Controller
             'avg_revenue_per_kg' => $avgRevenuePerKg,
             'avg_cost_per_kg' => $avgCostPerKg,
             'avg_profit_per_kg' => $avgProfitPerKg,
-            'products' => array_values($productMap),
-            'locations' => array_values($locationMap),
-            'crew_leaders' => array_values($crewLeaderMap),
+            'products' => $productMap,
+            'locations' => array_values($locMapArr),
+            'crew_leaders' => $crewLeaderMap,
         ];
     }
 
-    private function calculateDailyTrends($sheets): array
+    private function calculateDailyTrends($query): array
     {
         $days = [];
         $startDate = Carbon::today()->subDays(29);
+        
+        // Optimize: Fetch all relevant data within the 30 days grouped by date
+        $sheetIds = (clone $query)->where('work_date', '>=', $startDate->toDateString())->pluck('id')->toArray();
+        
+        $revByDate = [];
+        $kgByDate = [];
+        $costByDate = [];
+        
+        if (!empty($sheetIds)) {
+            $sheetTable = (new DailyWorkSheet)->getTable();
+            $harvestTable = (new DailyWorkSheetHarvestItem)->getTable();
+            $crewTable = (new DailyWorkSheetCrewLeader)->getTable();
+
+            $harvests = DailyWorkSheetHarvestItem::join($sheetTable, "{$harvestTable}.daily_work_sheet_id", '=', "{$sheetTable}.id")
+                ->whereIn("{$sheetTable}.id", $sheetIds)
+                ->selectRaw("
+                    {$sheetTable}.work_date,
+                    SUM({$harvestTable}.quantity) as total_kg,
+                    SUM(CASE WHEN {$harvestTable}.total_revenue > 0 
+                             THEN {$harvestTable}.total_revenue 
+                             ELSE {$harvestTable}.quantity * {$harvestTable}.unit_price END) as total_rev
+                ")
+                ->groupBy("{$sheetTable}.work_date")
+                ->get();
+                
+            foreach ($harvests as $h) {
+                $revByDate[$h->work_date] = (float) $h->total_rev;
+                $kgByDate[$h->work_date] = (float) $h->total_kg;
+            }
+            
+            $costs = DailyWorkSheetCrewLeader::join($sheetTable, "{$crewTable}.daily_work_sheet_id", '=', "{$sheetTable}.id")
+                ->whereIn("{$sheetTable}.id", $sheetIds)
+                ->selectRaw("
+                    {$sheetTable}.work_date,
+                    SUM({$crewTable}.calculated_wage_total + 
+                        ({$crewTable}.travel_fee * {$crewTable}.car_count) + 
+                        {$crewTable}.meal_fee) as total_cost
+                ")
+                ->groupBy("{$sheetTable}.work_date")
+                ->get();
+                
+            foreach ($costs as $c) {
+                $costByDate[$c->work_date] = (float) $c->total_cost;
+            }
+        }
 
         for ($i = 0; $i < 30; $i++) {
             $d = (clone $startDate)->addDays($i);
             $dStr = $d->toDateString();
             $label = $d->translatedFormat('d M');
 
-            $daySheets = $sheets->filter(fn ($s) => $s->work_date->toDateString() === $dStr);
-            $rev = 0.0;
-            $cost = 0.0;
-            $kg = 0.0;
-
-            foreach ($daySheets as $ds) {
-                foreach ($ds->harvestItems as $hi) {
-                    $itemKg = (float) ($hi->quantity ?? 0);
-                    $itemRev = (float) ($hi->total_revenue ?? 0);
-                    if ($itemRev <= 0 && $itemKg > 0) {
-                        $itemRev = $itemKg * (float) ($hi->unit_price ?? 0);
-                    }
-                    $rev += $itemRev;
-                    $kg += $itemKg;
-                }
-                foreach ($ds->crewLeaders as $cl) {
-                    $cost += (float) ($cl->calculated_wage_total ?? 0)
-                        + ((float) ($cl->travel_fee ?? 0) * (int) ($cl->car_count ?? 0))
-                        + (float) ($cl->meal_fee ?? 0);
-                }
-            }
+            $rev = $revByDate[$dStr] ?? 0.0;
+            $kg = $kgByDate[$dStr] ?? 0.0;
+            $cost = $costByDate[$dStr] ?? 0.0;
 
             $days[] = [
                 'date' => $dStr,
