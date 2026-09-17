@@ -74,6 +74,6 @@ class DailyWorkSheetHarvestItem extends Model
 
     public function weighedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'weighed_by_id');
+        return $this->belongsTo(Personnel::class, 'weighed_by_id');
     }
 }

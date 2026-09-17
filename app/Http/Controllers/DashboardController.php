@@ -56,9 +56,9 @@ class DashboardController extends Controller
             $thirtyDaysAgo = Carbon::today()->subDays(29)->toDateString();
 
             $analytics = [
-                'today' => $this->calculatePeriodMetrics((clone $allSheetsQuery)->where('work_date', '=', $today)),
-                'week' => $this->calculatePeriodMetrics((clone $allSheetsQuery)->where('work_date', '>=', $sevenDaysAgo)),
-                'month' => $this->calculatePeriodMetrics((clone $allSheetsQuery)->where('work_date', '>=', $thirtyDaysAgo)),
+                'today' => $this->calculatePeriodMetrics((clone $allSheetsQuery)->whereDate('work_date', '=', $today)),
+                'week' => $this->calculatePeriodMetrics((clone $allSheetsQuery)->whereDate('work_date', '>=', $sevenDaysAgo)),
+                'month' => $this->calculatePeriodMetrics((clone $allSheetsQuery)->whereDate('work_date', '>=', $thirtyDaysAgo)),
                 'all' => $this->calculatePeriodMetrics((clone $allSheetsQuery)),
             ];
 
@@ -167,18 +167,17 @@ class DashboardController extends Controller
         $revenue = (float) ($revenueData->total_rev ?? 0);
         $harvestKg = (float) ($revenueData->total_kg ?? 0);
 
-        // 2. Costs (Aggregate)
         $costData = DailyWorkSheetCrewLeader::whereIn('daily_work_sheet_id', $sheetIds)
             ->selectRaw('
-                SUM(calculated_wage_total) as labor_wage,
+                SUM(calculated_wage_total) as grand_total,
                 SUM(travel_fee * car_count) as travel_fee,
                 SUM(meal_fee) as meal_fee
             ')->first();
 
-        $laborWage = (float) ($costData->labor_wage ?? 0);
+        $totalCost = (float) ($costData->grand_total ?? 0);
         $travelFee = (float) ($costData->travel_fee ?? 0);
         $mealFee = (float) ($costData->meal_fee ?? 0);
-        $totalCost = $laborWage + $travelFee + $mealFee;
+        $laborWage = max(0, $totalCost - $travelFee - $mealFee);
 
         // 3. Products Grouping
         $productsRaw = DailyWorkSheetHarvestItem::whereIn('daily_work_sheet_id', $sheetIds)
@@ -226,9 +225,10 @@ class DashboardController extends Controller
 
         $crewLeaderMap = [];
         foreach ($crewsRaw as $c) {
-            $wage = (float) $c->wage_total;
+            $totalCost = (float) $c->wage_total;
             $travel = (float) $c->travel_total;
             $meal = (float) $c->meal_total;
+            $wage = max(0, $totalCost - $travel - $meal);
             $clName = $c->crewLeader ? ($c->crewLeader->first_name . ' ' . $c->crewLeader->last_name) : 'Diğer / Tanımsız';
 
             $crewLeaderMap[] = [
@@ -239,7 +239,7 @@ class DashboardController extends Controller
                 'wage_total' => round($wage, 2),
                 'travel_total' => round($travel, 2),
                 'meal_total' => round($meal, 2),
-                'total_cost' => round($wage + $travel + $meal, 2),
+                'total_cost' => round($totalCost, 2),
             ];
         }
 
@@ -273,7 +273,7 @@ class DashboardController extends Controller
                 $sRev += ($r > 0) ? $r : ((float) $hi->quantity * (float) $hi->unit_price);
             }
             foreach ($sheet->crewLeaders as $cl) {
-                $sCost += (float) $cl->calculated_wage_total + ((float) $cl->travel_fee * (int) $cl->car_count) + (float) $cl->meal_fee;
+                $sCost += (float) $cl->calculated_wage_total;
             }
             
             $locMapArr[$locName]['kg'] += $sKg;
@@ -311,8 +311,7 @@ class DashboardController extends Controller
         $days = [];
         $startDate = Carbon::today()->subDays(29);
         
-        // Optimize: Fetch all relevant data within the 30 days grouped by date
-        $sheetIds = (clone $query)->where('work_date', '>=', $startDate->toDateString())->pluck('id')->toArray();
+        $sheetIds = (clone $query)->whereDate('work_date', '>=', $startDate->toDateString())->pluck('id')->toArray();
         
         $revByDate = [];
         $kgByDate = [];
@@ -336,23 +335,23 @@ class DashboardController extends Controller
                 ->get();
                 
             foreach ($harvests as $h) {
-                $revByDate[$h->work_date] = (float) $h->total_rev;
-                $kgByDate[$h->work_date] = (float) $h->total_kg;
+                $dateKey = substr($h->work_date, 0, 10);
+                $revByDate[$dateKey] = (float) $h->total_rev;
+                $kgByDate[$dateKey] = (float) $h->total_kg;
             }
             
             $costs = DailyWorkSheetCrewLeader::join($sheetTable, "{$crewTable}.daily_work_sheet_id", '=', "{$sheetTable}.id")
                 ->whereIn("{$sheetTable}.id", $sheetIds)
                 ->selectRaw("
                     {$sheetTable}.work_date,
-                    SUM({$crewTable}.calculated_wage_total + 
-                        ({$crewTable}.travel_fee * {$crewTable}.car_count) + 
-                        {$crewTable}.meal_fee) as total_cost
+                    SUM({$crewTable}.calculated_wage_total) as total_cost
                 ")
                 ->groupBy("{$sheetTable}.work_date")
                 ->get();
                 
             foreach ($costs as $c) {
-                $costByDate[$c->work_date] = (float) $c->total_cost;
+                $dateKey = substr($c->work_date, 0, 10);
+                $costByDate[$dateKey] = (float) $c->total_cost;
             }
         }
 

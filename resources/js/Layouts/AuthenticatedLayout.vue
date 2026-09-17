@@ -20,7 +20,7 @@ watch([flashSuccess, flashError], () => {
             showFlash.value = false;
         }, 4000);
     }
-});
+}, { immediate: true });
 
 const isMobileMenuOpen = ref(false);
 const isDark = ref(false);

@@ -182,4 +182,58 @@ class AgricultureOperationsTest extends TestCase
             'worker_count' => 10,
         ]);
     }
+
+    public function test_can_update_banana_weights_and_associate_personnel(): void
+    {
+        $personnel = Personnel::create([
+            'user_id' => $this->user->id,
+            'first_name' => 'Ali',
+            'last_name' => 'Yılmaz',
+            'phone' => '05550000000',
+            'role' => 'supervisor',
+            'is_active' => true,
+        ]);
+
+        $product = Product::create([
+            'company_id' => $this->company->id,
+            'code' => 'BAN-01',
+            'name' => 'Muz',
+        ]);
+
+        $sheet = \App\Models\DailyWorkSheet::create([
+            'work_date' => now()->toDateString(),
+            'company_id' => $this->company->id,
+            'production_location_id' => $this->location->id,
+            'storage_destination' => 'direct_sale',
+            'status' => 'approved',
+            'created_by_id' => $this->user->id,
+        ]);
+
+        $item = $sheet->harvestItems()->create([
+            'product_id' => $product->id,
+            'quantity' => 0,
+            'unit_price' => 35,
+            'crop_type' => 'banana',
+        ]);
+
+        $response = $this->actingAs($this->user)->patch(route('agriculture.daily-work-sheets.update-banana-weights', $item->id), [
+            'merchant_scale_1st_kg' => 1200,
+            'merchant_scale_2nd_kg' => 800,
+            'unit_price' => 35,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('gunluk_form_hasat_kalemleri', [
+            'id' => $item->id,
+            'merchant_scale_1st_kg' => 1200,
+            'merchant_scale_2nd_kg' => 800,
+            'quantity' => 2000,
+            'total_revenue' => 70000,
+            'is_merchant_weighed' => true,
+            'weighed_by_id' => $personnel->id,
+        ]);
+
+        $refreshed = $item->fresh();
+        $this->assertEquals($personnel->id, $refreshed->weighedBy?->id);
+    }
 }

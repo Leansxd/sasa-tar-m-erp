@@ -187,7 +187,7 @@ class DailyWorkSheetController extends Controller
             'quantity' => $totalKg,
             'total_revenue' => $totalKg * $price,
             'is_merchant_weighed' => true,
-            'weighed_by_id' => Auth::id(),
+            'weighed_by_id' => Personnel::where('user_id', Auth::id())->value('id'),
         ]);
 
         return redirect()->back()->with('success', 'Muz tüccar kantar kilo verileri güncellendi ve stok girişi tamamlandı.');
