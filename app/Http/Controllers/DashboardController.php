@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Company;
 use App\Models\CustomerOrder;
 use App\Models\DailyWorkSheet;
 use App\Models\DailyWorkSheetHarvestItem;
@@ -64,7 +65,6 @@ class DashboardController extends Controller
 
             $dailyTrends = $this->calculateDailyTrends((clone $allSheetsQuery));
             
-            // Recent items still need models
             $recentSheets = (clone $allSheetsQuery)
                 ->with(['company', 'productionLocation', 'crewLeaders.crewLeader', 'harvestItems.product'])
                 ->orderBy('work_date', 'desc')
@@ -243,43 +243,71 @@ class DashboardController extends Controller
             ];
         }
 
-        // Locations grouping requires joining sheets with harvest and costs,
-        // For simplicity and speed without complex joins, we can query sheets directly
-        // and loop, but since sheet IDs are limited, we can eager load just what's needed
-        $locationSheets = DailyWorkSheet::whereIn('id', $sheetIds)
-            ->with(['productionLocation.company', 'harvestItems', 'crewLeaders'])
+        $sheetTable = (new DailyWorkSheet)->getTable();
+        $harvestTable = (new DailyWorkSheetHarvestItem)->getTable();
+        $crewTable = (new DailyWorkSheetCrewLeader)->getTable();
+        $locTable = (new ProductionLocation)->getTable();
+        $compTable = (new Company)->getTable();
+
+        $harvestByLoc = DB::table($harvestTable)
+            ->join($sheetTable, "{$harvestTable}.daily_work_sheet_id", '=', "{$sheetTable}.id")
+            ->join($locTable, "{$sheetTable}.production_location_id", '=', "{$locTable}.id")
+            ->leftJoin($compTable, "{$locTable}.company_id", '=', "{$compTable}.id")
+            ->whereIn("{$sheetTable}.id", $sheetIds)
+            ->selectRaw("
+                {$locTable}.id as loc_id,
+                {$locTable}.name as loc_name,
+                {$compTable}.name as comp_name,
+                SUM({$harvestTable}.quantity) as total_kg,
+                SUM(CASE WHEN {$harvestTable}.total_revenue > 0 THEN {$harvestTable}.total_revenue ELSE {$harvestTable}.quantity * {$harvestTable}.unit_price END) as total_rev
+            ")
+            ->groupBy("{$locTable}.id", "{$locTable}.name", "{$compTable}.name")
             ->get();
-            
+
+        $costsByLoc = DB::table($crewTable)
+            ->join($sheetTable, "{$crewTable}.daily_work_sheet_id", '=', "{$sheetTable}.id")
+            ->whereIn("{$sheetTable}.id", $sheetIds)
+            ->selectRaw("
+                {$sheetTable}.production_location_id as loc_id,
+                SUM({$crewTable}.calculated_wage_total) as total_cost
+            ")
+            ->groupBy("{$sheetTable}.production_location_id")
+            ->pluck('total_cost', 'loc_id');
+
         $locMapArr = [];
-        foreach ($locationSheets as $sheet) {
-            $locName = $sheet->productionLocation->name ?? 'Tesis';
-            $compName = $sheet->productionLocation->company->name ?? 'SASA';
-            
-            if (!isset($locMapArr[$locName])) {
-                $locMapArr[$locName] = [
-                    'name' => $locName,
-                    'company' => $compName,
+        foreach ($harvestByLoc as $h) {
+            $locId = $h->loc_id;
+            $cost = (float) ($costsByLoc[$locId] ?? 0);
+            $rev = (float) $h->total_rev;
+            $locMapArr[$locId] = [
+                'name' => $h->loc_name ?? 'Tesis',
+                'company' => $h->comp_name ?? 'SASA',
+                'kg' => round((float) $h->total_kg, 2),
+                'revenue' => round($rev, 2),
+                'cost' => round($cost, 2),
+                'profit' => round($rev - $cost, 2),
+            ];
+            unset($costsByLoc[$locId]);
+        }
+
+        if ($costsByLoc->isNotEmpty()) {
+            $remainingLocs = DB::table($locTable)
+                ->leftJoin($compTable, "{$locTable}.company_id", '=', "{$compTable}.id")
+                ->whereIn("{$locTable}.id", $costsByLoc->keys())
+                ->select("{$locTable}.id", "{$locTable}.name as loc_name", "{$compTable}.name as comp_name")
+                ->get();
+
+            foreach ($remainingLocs as $rl) {
+                $cost = (float) ($costsByLoc[$rl->id] ?? 0);
+                $locMapArr[$rl->id] = [
+                    'name' => $rl->loc_name ?? 'Tesis',
+                    'company' => $rl->comp_name ?? 'SASA',
                     'kg' => 0.0,
                     'revenue' => 0.0,
-                    'cost' => 0.0,
-                    'profit' => 0.0,
+                    'cost' => round($cost, 2),
+                    'profit' => round(-$cost, 2),
                 ];
             }
-            
-            $sRev = 0; $sKg = 0; $sCost = 0;
-            foreach ($sheet->harvestItems as $hi) {
-                $sKg += (float) $hi->quantity;
-                $r = (float) $hi->total_revenue;
-                $sRev += ($r > 0) ? $r : ((float) $hi->quantity * (float) $hi->unit_price);
-            }
-            foreach ($sheet->crewLeaders as $cl) {
-                $sCost += (float) $cl->calculated_wage_total;
-            }
-            
-            $locMapArr[$locName]['kg'] += $sKg;
-            $locMapArr[$locName]['revenue'] += $sRev;
-            $locMapArr[$locName]['cost'] += $sCost;
-            $locMapArr[$locName]['profit'] += ($sRev - $sCost);
         }
 
         $netProfit = $revenue - $totalCost;

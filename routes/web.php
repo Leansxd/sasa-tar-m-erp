@@ -13,6 +13,7 @@ use App\Http\Controllers\Agriculture\MarketPriceController;
 
 use App\Http\Controllers\MasterDefinitionsController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\SetupWizardController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -22,6 +23,9 @@ Route::get('/', function () {
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+
+    Route::get('/setup', [SetupWizardController::class, 'index'])->name('setup.index');
+    Route::get('/setup/data', [SetupWizardController::class, 'getData'])->name('setup.data');
 
     Route::prefix('agriculture')->name('agriculture.')->group(function () {
         Route::get('/', [AgricultureController::class, 'index'])->name('index');
