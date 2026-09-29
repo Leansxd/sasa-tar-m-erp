@@ -2,31 +2,21 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Personnel;
+use App\Models\Tenant;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
-    /**
-     * The root template that is loaded on the first page visit.
-     *
-     * @var string
-     */
     protected $rootView = 'app';
 
-    /**
-     * Determine the current asset version.
-     */
     public function version(Request $request): ?string
     {
         return parent::version($request);
     }
 
-    /**
-     * Define the props that are shared by default.
-     *
-     * @return array<string, mixed>
-     */
     public function share(Request $request): array
     {
         $user = $request->user();
@@ -35,8 +25,37 @@ class HandleInertiaRequests extends Middleware
         $isAdmin = false;
 
         if ($user) {
+            if ($user->tenant_id) {
+                $tenant = Tenant::find($user->tenant_id);
+                $isImpersonating = (bool) $request->session()->get('impersonated_by_master');
+
+                if ($tenant && !$isImpersonating) {
+                    if (!$tenant->is_active) {
+                        Auth::guard('web')->logout();
+                        $request->session()->invalidate();
+                        $request->session()->regenerateToken();
+                        return [
+                            ...parent::share($request),
+                            'auth' => ['user' => null],
+                            'flash' => ['error' => 'Şirketinizin erişim lisansı durdurulmuştur.'],
+                        ];
+                    }
+
+                    if ($tenant->expires_at && $tenant->expires_at->isPast()) {
+                        Auth::guard('web')->logout();
+                        $request->session()->invalidate();
+                        $request->session()->regenerateToken();
+                        return [
+                            ...parent::share($request),
+                            'auth' => ['user' => null],
+                            'flash' => ['error' => 'Şirketinizin lisans kullanım süresi sona ermiştir.'],
+                        ];
+                    }
+                }
+            }
+
             $isAdmin = !!$user->is_admin;
-            $personnel = \App\Models\Personnel::where('user_id', $user->id)->first();
+            $personnel = Personnel::where('user_id', $user->id)->first();
 
             if ($isAdmin) {
                 $permissions = ['tesis', 'uretim', 'teknik', 'operasyon', 'raporlar', 'tanimlamalar'];
@@ -53,9 +72,11 @@ class HandleInertiaRequests extends Middleware
                 'personnel' => $personnel,
                 'permissions' => $permissions,
             ],
+            'is_impersonating' => (bool) $request->session()->get('impersonated_by_master'),
+            'impersonated_tenant_name' => $request->session()->get('impersonated_tenant_name'),
             'flash' => [
-                'success' => fn () => $request->session()->get('success'),
-                'error' => fn () => $request->session()->get('error'),
+                'success' => fn() => $request->session()->get('success'),
+                'error' => fn() => $request->session()->get('error'),
             ],
         ];
     }

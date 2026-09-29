@@ -32,6 +32,12 @@ class SprayingController extends Controller
 
     public function destroySprayingApplication(SprayingApplication $app): RedirectResponse
     {
+        $user = auth()->user();
+        $personnel = \App\Models\Personnel::where('user_id', $user->id)->first();
+        if (!$user->is_admin && !in_array('uretim', $personnel->permissions ?? [])) {
+            return redirect()->back()->withErrors(['error' => 'İlaçlama kaydı silme yetkiniz bulunmamaktadır.']);
+        }
+
         $app->delete();
         return redirect()->back()->with('success', 'İlaçlama kaydı silindi.');
     }

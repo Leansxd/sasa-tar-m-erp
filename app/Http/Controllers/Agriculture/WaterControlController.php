@@ -30,6 +30,12 @@ class WaterControlController extends Controller
 
     public function destroyWaterAnalysis(WaterAnalysisLog $log): RedirectResponse
     {
+        $user = auth()->user();
+        $personnel = \App\Models\Personnel::where('user_id', $user->id)->first();
+        if (!$user->is_admin && !in_array('uretim', $personnel->permissions ?? []) && !in_array('teknik', $personnel->permissions ?? [])) {
+            return redirect()->back()->withErrors(['error' => 'Su analiz kaydı silme yetkiniz bulunmamaktadır.']);
+        }
+
         $log->delete();
         return redirect()->back()->with('success', 'Su analiz kaydı silindi.');
     }
@@ -48,9 +54,9 @@ class WaterControlController extends Controller
             'passive_start_date' => 'nullable|date',
             'source_switch_reason' => 'nullable|string',
             'is_filter_cleaned' => 'boolean',
-            'filter_cleaned_photo' => 'nullable',
+            'filter_cleaned_photo' => 'nullable|file|mimes:jpeg,png,jpg,webp|max:10240',
             'water_tank_level' => 'required|in:full,half_plus,half_minus,empty',
-            'water_tank_photo' => 'nullable',
+            'water_tank_photo' => 'nullable|file|mimes:jpeg,png,jpg,webp|max:10240',
             'water_tank_note' => 'nullable|string',
             'chlorine_tank_level' => 'required|in:full,half_plus,half_minus,empty',
             'dosing_pump_mode' => 'required|in:auto,manual,faulty',
@@ -58,13 +64,21 @@ class WaterControlController extends Controller
             'dosing_pump_fault_note' => 'nullable|string',
         ]);
 
+        $existing = $request->id ? RawWaterControl::find($request->id) : null;
+
         if ($request->hasFile('filter_cleaned_photo')) {
+            if ($existing && $existing->filter_cleaned_photo) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete(str_replace('/storage/', '', $existing->filter_cleaned_photo));
+            }
             $validated['filter_cleaned_photo'] = '/storage/' . $request->file('filter_cleaned_photo')->store('water_controls', 'public');
         } elseif (!$request->filled('filter_cleaned_photo')) {
             unset($validated['filter_cleaned_photo']);
         }
 
         if ($request->hasFile('water_tank_photo')) {
+            if ($existing && $existing->water_tank_photo) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete(str_replace('/storage/', '', $existing->water_tank_photo));
+            }
             $validated['water_tank_photo'] = '/storage/' . $request->file('water_tank_photo')->store('water_controls', 'public');
         } elseif (!$request->filled('water_tank_photo')) {
             unset($validated['water_tank_photo']);
@@ -77,6 +91,12 @@ class WaterControlController extends Controller
 
     public function destroyRawWaterControl(RawWaterControl $control): RedirectResponse
     {
+        $user = auth()->user();
+        $personnel = \App\Models\Personnel::where('user_id', $user->id)->first();
+        if (!$user->is_admin && !in_array('teknik', $personnel->permissions ?? [])) {
+            return redirect()->back()->withErrors(['error' => 'Kaynak suyu kontrol kaydı silme yetkiniz bulunmamaktadır.']);
+        }
+
         $control->delete();
         return redirect()->back()->with('success', 'Kaynak suyu kontrol kaydı silindi.');
     }
@@ -119,6 +139,12 @@ class WaterControlController extends Controller
 
     public function destroyPurificationControl(PurificationControl $control): RedirectResponse
     {
+        $user = auth()->user();
+        $personnel = \App\Models\Personnel::where('user_id', $user->id)->first();
+        if (!$user->is_admin && !in_array('teknik', $personnel->permissions ?? [])) {
+            return redirect()->back()->withErrors(['error' => 'Arıtma kontrol kaydı silme yetkiniz bulunmamaktadır.']);
+        }
+
         $control->delete();
         return redirect()->back()->with('success', 'Arıtma kontrol kaydı silindi.');
     }

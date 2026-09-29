@@ -12,10 +12,12 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     protected $fillable = [
+        'tenant_id',
         'name',
         'email',
         'password',
         'is_admin',
+        'is_super_admin',
     ];
 
     protected $hidden = [
@@ -26,9 +28,16 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
+            'tenant_id' => 'integer',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_admin' => 'boolean',
+            'is_super_admin' => 'boolean',
         ];
+    }
+
+    public function tenant()
+    {
+        return $this->belongsTo(Tenant::class);
     }
 }

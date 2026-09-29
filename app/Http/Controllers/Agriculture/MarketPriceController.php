@@ -34,6 +34,12 @@ class MarketPriceController extends Controller
 
     public function destroyMarketPrice(MarketPrice $price): RedirectResponse
     {
+        $user = auth()->user();
+        $personnel = \App\Models\Personnel::where('user_id', $user->id)->first();
+        if (!$user->is_admin && !in_array('raporlar', $personnel->permissions ?? []) && !in_array('operasyon', $personnel->permissions ?? [])) {
+            return redirect()->back()->withErrors(['error' => 'Piyasa fiyat kaydı silme yetkiniz bulunmamaktadır.']);
+        }
+
         $price->delete();
         return redirect()->back()->with('success', 'Piyasa fiyat kaydı silindi.');
     }

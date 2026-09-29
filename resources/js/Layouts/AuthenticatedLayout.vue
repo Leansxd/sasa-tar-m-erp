@@ -6,7 +6,15 @@ import SetupWizardModal from '@/Components/SetupWizardModal.vue';
 const page = usePage();
 const permissions = computed(() => (page.props.auth as any)?.permissions || []);
 const isAdmin = computed(() => !!(page.props.auth as any)?.is_admin);
-const isSetupWizardOpen = ref(false);
+const isSetupWizardOpen = ref(
+    typeof window !== 'undefined' ? localStorage.getItem('sasa_setup_wizard_open') === 'true' : false
+);
+
+watch(isSetupWizardOpen, (val) => {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('sasa_setup_wizard_open', val ? 'true' : 'false');
+    }
+});
 
 const hasPermission = (mod: string) => isAdmin.value || permissions.value.includes(mod);
 const canSeeAgriculture = computed(() => isAdmin.value || ['tesis', 'uretim', 'teknik', 'operasyon', 'raporlar'].some(m => permissions.value.includes(m)));
@@ -203,16 +211,41 @@ onMounted(() => {
 
 <template>
     <div class="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans antialiased transition-colors duration-200">
-        <!-- EN ÜST ANA HEADER ÇUBUĞU (FULL WIDTH) -->
+        
+        <div
+            v-if="($page.props as any).is_impersonating"
+            class="bg-gradient-to-r from-amber-600 via-amber-500 to-rose-600 text-white px-4 py-2 text-xs font-bold flex items-center justify-between shadow-md z-50 sticky top-0"
+        >
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 animate-pulse shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+                <span>
+                    SÜPER YÖNETİCİ GÖZ ATMA MODU:
+                    <strong class="underline font-black uppercase">{{ ($page.props as any).impersonated_tenant_name || 'Müşteri Hesabı' }}</strong>
+                    şirketindesiniz.
+                </span>
+            </div>
+            <form @submit.prevent="router.post(route('master-control.stop-impersonate'))">
+                <button
+                    type="submit"
+                    class="px-3 py-1 bg-black/40 hover:bg-black/60 rounded-lg text-white font-black text-[11px] transition cursor-pointer flex items-center gap-1.5 border border-white/20"
+                >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                    <span>Master Panele Dön</span>
+                </button>
+            </form>
+        </div>
+
         <header class="h-16 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-0 z-40 transition-colors shadow-2xs">
-            <!-- Sol: Logo + Ana Navigasyon Sekmeleri -->
             <div class="flex items-center gap-4 sm:gap-6">
-                <!-- Mobil Menü Açma Butonu -->
                 <button @click="isMobileMenuOpen = true" class="p-2 lg:hidden text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
 
-                <!-- SASA ERP Logo -->
                 <Link :href="route('dashboard')" class="flex items-center gap-2.5 group">
                     <div class="w-9 h-9 flex items-center justify-center group-hover:scale-105 transition">
                         <img src="/sasaerp.svg" alt="SASA ERP Logo" class="w-full h-full object-contain drop-shadow-xs" />
@@ -223,9 +256,7 @@ onMounted(() => {
                     </div>
                 </Link>
 
-                <!-- Ana Navigasyon Sekmeleri (Masaüstü) -->
                 <nav class="hidden lg:flex items-center gap-1.5 border-l border-slate-200 dark:border-slate-800 pl-4 sm:pl-5">
-                    <!-- 1. Ana Menü -->
                     <Link
                         :href="route('dashboard')"
                         :class="[
@@ -241,7 +272,6 @@ onMounted(() => {
                         <span>Ana Menü</span>
                     </Link>
 
-                    <!-- 2. Tarım Operasyonları (Sekme Sekme Açılır Dropdown) -->
                     <div
                         v-if="canSeeAgriculture"
                         class="relative group-dropdown-agriculture"

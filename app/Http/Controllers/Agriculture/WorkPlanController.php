@@ -28,15 +28,21 @@ class WorkPlanController extends Controller
             'photo' => 'nullable|file|mimes:jpeg,png,jpg,webp|max:10240',
         ]);
 
-        if ($request->hasFile('photo')) {
-            $path = $request->file('photo')->store('work_plans', 'public');
-            $validated['photo_path'] = '/storage/' . $path;
-        }
-
         if ($request->filled('id')) {
             $workPlan = WorkPlan::findOrFail($request->id);
+            if ($request->hasFile('photo')) {
+                if ($workPlan->photo_path) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete(str_replace('/storage/', '', $workPlan->photo_path));
+                }
+                $path = $request->file('photo')->store('work_plans', 'public');
+                $validated['photo_path'] = '/storage/' . $path;
+            }
             $workPlan->update($validated);
         } else {
+            if ($request->hasFile('photo')) {
+                $path = $request->file('photo')->store('work_plans', 'public');
+                $validated['photo_path'] = '/storage/' . $path;
+            }
             WorkPlan::create($validated);
         }
 
@@ -78,6 +84,16 @@ class WorkPlanController extends Controller
             $location = $workPlan->productionLocation;
             if ($location && !in_array($location->company_id, $allowedCompanies)) {
                 return redirect()->back()->withErrors(['error' => 'Bu lokasyondaki iş planını silme yetkiniz bulunmamaktadır.']);
+            }
+        }
+
+        if ($workPlan->photo_path) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete(str_replace('/storage/', '', $workPlan->photo_path));
+        }
+
+        foreach ($workPlan->comments as $comment) {
+            if ($comment->photo_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete(str_replace('/storage/', '', $comment->photo_path));
             }
         }
 

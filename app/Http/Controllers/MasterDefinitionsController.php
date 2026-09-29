@@ -22,6 +22,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Facades\DB;
 
 class MasterDefinitionsController extends Controller
 {
@@ -67,6 +68,9 @@ class MasterDefinitionsController extends Controller
 
     public function destroyCompany(Company $company): RedirectResponse
     {
+        if ($company->productionLocations()->exists() || \App\Models\DailyWorkSheet::where('company_id', $company->id)->exists() || \App\Models\CustomerOrder::where('company_id', $company->id)->exists()) {
+            return redirect()->back()->withErrors(['error' => 'Bu firmaya bağlı üretim yeri, iş formu veya sipariş kayıtları bulunduğu için silinemez.']);
+        }
         $company->delete();
         return redirect()->back()->with('success', 'Firma silindi.');
     }
@@ -113,6 +117,10 @@ class MasterDefinitionsController extends Controller
             if ($userId) {
                 $user = \App\Models\User::find($userId);
                 if ($user) {
+                    $existingWithEmail = \App\Models\User::where('email', $validated['email'])->where('id', '!=', $user->id)->first();
+                    if ($existingWithEmail) {
+                        return redirect()->back()->withErrors(['email' => 'Bu e-posta adresi başka bir kullanıcı tarafından kullanılmaktadır.']);
+                    }
                     $user->name = $validated['first_name'] . ' ' . $validated['last_name'];
                     $user->email = $validated['email'];
                     if (!empty($validated['password'])) {
@@ -121,16 +129,26 @@ class MasterDefinitionsController extends Controller
                     $user->save();
                 }
             } else {
-                $user = \App\Models\User::firstOrCreate(
-                    ['email' => $validated['email']],
-                    [
+                $existingUser = \App\Models\User::where('email', $validated['email'])->first();
+                if ($existingUser) {
+                    if (Personnel::where('user_id', $existingUser->id)->exists()) {
+                        return redirect()->back()->withErrors(['email' => 'Bu e-posta adresi başka bir personele atanmıştır.']);
+                    }
+                    $userId = $existingUser->id;
+                    if (!empty($validated['password'])) {
+                        $existingUser->password = bcrypt($validated['password']);
+                        $existingUser->save();
+                    }
+                } else {
+                    $user = \App\Models\User::create([
                         'name' => $validated['first_name'] . ' ' . $validated['last_name'],
+                        'email' => $validated['email'],
                         'password' => bcrypt($validated['password'] ?? 'password'),
                         'email_verified_at' => now(),
                         'is_admin' => false,
-                    ]
-                );
-                $userId = $user->id;
+                    ]);
+                    $userId = $user->id;
+                }
             }
         }
 
@@ -147,7 +165,13 @@ class MasterDefinitionsController extends Controller
 
     public function destroyPersonnel(Personnel $personnel): RedirectResponse
     {
+        $userId = $personnel->user_id;
         $personnel->delete();
+        if ($userId && $user = \App\Models\User::find($userId)) {
+            if (!$user->is_admin) {
+                $user->delete();
+            }
+        }
         return redirect()->back()->with('success', 'Personel silindi.');
     }
 
@@ -171,6 +195,9 @@ class MasterDefinitionsController extends Controller
 
     public function destroyTradingParty(TradingParty $tradingParty): RedirectResponse
     {
+        if (\App\Models\CustomerOrder::where('trading_party_id', $tradingParty->id)->exists() || \App\Models\ShipmentDelivery::where('trading_party_id', $tradingParty->id)->exists()) {
+            return redirect()->back()->withErrors(['error' => 'Bu cariye bağlı müşteri siparişi veya sevkiyat kaydı bulunduğu için silinemez.']);
+        }
         $tradingParty->delete();
         return redirect()->back()->with('success', 'Cari taraf silindi.');
     }
@@ -217,6 +244,9 @@ class MasterDefinitionsController extends Controller
 
     public function destroyDeliveryType(DeliveryType $deliveryType): RedirectResponse
     {
+        if (\App\Models\CustomerOrder::where('delivery_type_id', $deliveryType->id)->exists() || \App\Models\ShipmentDelivery::where('delivery_type_id', $deliveryType->id)->exists()) {
+            return redirect()->back()->withErrors(['error' => 'Bu teslimat şekline bağlı sipariş veya sevkiyat kaydı bulunduğu için silinemez.']);
+        }
         $deliveryType->delete();
         return redirect()->back()->with('success', 'Teslim şekli silindi.');
     }
@@ -233,60 +263,65 @@ class MasterDefinitionsController extends Controller
             'approx_plant_count' => 'nullable|integer|min:0',
         ]);
 
-        $location = ProductionLocation::updateOrCreate(['id' => $request->id], $validated);
+        DB::transaction(function () use ($request, $validated) {
+            $location = ProductionLocation::updateOrCreate(['id' => $request->id], $validated);
 
-        if ($request->has('sections') && is_array($request->sections)) {
-            $existingSecIds = [];
-            foreach ($request->sections as $sec) {
-                if (!empty($sec['name'])) {
-                    $secData = [
-                        'name' => $sec['name'],
-                        'section_type' => $sec['section_type'] ?? 'greenhouse',
-                        'area_dekar' => $sec['area_dekar'] ?? 0,
-                        'tunnel_count' => $sec['tunnel_count'] ?? 0,
-                        'table_stand_count' => $sec['table_stand_count'] ?? 0,
-                        'approx_plant_count' => $sec['approx_plant_count'] ?? null,
-                    ];
-                    if (!empty($sec['id']) && $existing = $location->sections()->find($sec['id'])) {
-                        $existing->update($secData);
-                        $existingSecIds[] = $existing->id;
-                    } else {
-                        $newSec = $location->sections()->create($secData);
-                        $existingSecIds[] = $newSec->id;
+            if ($request->has('sections') && is_array($request->sections)) {
+                $existingSecIds = [];
+                foreach ($request->sections as $sec) {
+                    if (!empty($sec['name'])) {
+                        $secData = [
+                            'name' => $sec['name'],
+                            'section_type' => $sec['section_type'] ?? 'greenhouse',
+                            'area_dekar' => $sec['area_dekar'] ?? 0,
+                            'tunnel_count' => $sec['tunnel_count'] ?? 0,
+                            'table_stand_count' => $sec['table_stand_count'] ?? 0,
+                            'approx_plant_count' => $sec['approx_plant_count'] ?? null,
+                        ];
+                        if (!empty($sec['id']) && $existing = $location->sections()->find($sec['id'])) {
+                            $existing->update($secData);
+                            $existingSecIds[] = $existing->id;
+                        } else {
+                            $newSec = $location->sections()->create($secData);
+                            $existingSecIds[] = $newSec->id;
+                        }
                     }
                 }
+                $location->sections()->whereNotIn('id', $existingSecIds)->delete();
             }
-            $location->sections()->whereNotIn('id', $existingSecIds)->delete();
-        }
 
-        if ($request->has('valves') && is_array($request->valves)) {
-            $existingValveIds = [];
-            foreach ($request->valves as $valve) {
-                if (!empty($valve['name'])) {
-                    $valveData = [
-                        'production_section_id' => $valve['production_section_id'] ?? null,
-                        'valve_number' => $valve['valve_number'] ?? 'V-01',
-                        'name' => $valve['name'],
-                        'duty' => $valve['duty'] ?? 'irrigation',
-                        'description' => $valve['description'] ?? null,
-                    ];
-                    if (!empty($valve['id']) && $existing = $location->valves()->find($valve['id'])) {
-                        $existing->update($valveData);
-                        $existingValveIds[] = $existing->id;
-                    } else {
-                        $newValve = $location->valves()->create($valveData);
-                        $existingValveIds[] = $newValve->id;
+            if ($request->has('valves') && is_array($request->valves)) {
+                $existingValveIds = [];
+                foreach ($request->valves as $valve) {
+                    if (!empty($valve['name'])) {
+                        $valveData = [
+                            'production_section_id' => $valve['production_section_id'] ?? null,
+                            'valve_number' => $valve['valve_number'] ?? 'V-01',
+                            'name' => $valve['name'],
+                            'duty' => $valve['duty'] ?? 'irrigation',
+                            'description' => $valve['description'] ?? null,
+                        ];
+                        if (!empty($valve['id']) && $existing = $location->valves()->find($valve['id'])) {
+                            $existing->update($valveData);
+                            $existingValveIds[] = $existing->id;
+                        } else {
+                            $newValve = $location->valves()->create($valveData);
+                            $existingValveIds[] = $newValve->id;
+                        }
                     }
                 }
+                $location->valves()->whereNotIn('id', $existingValveIds)->delete();
             }
-            $location->valves()->whereNotIn('id', $existingValveIds)->delete();
-        }
+        });
 
         return redirect()->back()->with('success', 'Üretim yeri detaylarıyla kaydedildi.');
     }
 
     public function destroyProductionLocation(ProductionLocation $productionLocation): RedirectResponse
     {
+        if (\App\Models\DailyWorkSheet::where('production_location_id', $productionLocation->id)->exists() || \App\Models\IrrigationSchedule::where('production_location_id', $productionLocation->id)->exists() || \App\Models\WaterSource::where('production_location_id', $productionLocation->id)->exists()) {
+            return redirect()->back()->withErrors(['error' => 'Bu üretim yerine bağlı iş formları, sulama programları veya su kaynakları bulunduğu için silinemez.']);
+        }
         $productionLocation->delete();
         return redirect()->back()->with('success', 'Üretim yeri silindi.');
     }
@@ -314,46 +349,51 @@ class MasterDefinitionsController extends Controller
             'unit_ids' => 'nullable|array',
         ]);
 
-        $product = Product::updateOrCreate(['id' => $request->id], [
-            'name' => $validated['name'],
-            'code' => $validated['code'],
-            'product_type' => $validated['product_type'],
-            'dia_stock_code' => $validated['dia_stock_code'] ?? null,
-            'description' => $validated['description'] ?? null,
-        ]);
+        DB::transaction(function () use ($request, $validated) {
+            $product = Product::updateOrCreate(['id' => $request->id], [
+                'name' => $validated['name'],
+                'code' => $validated['code'],
+                'product_type' => $validated['product_type'],
+                'dia_stock_code' => $validated['dia_stock_code'] ?? null,
+                'description' => $validated['description'] ?? null,
+            ]);
 
-        if (isset($validated['company_ids'])) {
-            $product->companies()->sync($validated['company_ids']);
-        }
-        if (isset($validated['unit_ids'])) {
-            $product->units()->sync($validated['unit_ids']);
-        }
+            if (isset($validated['company_ids'])) {
+                $product->companies()->sync($validated['company_ids']);
+            }
+            if (isset($validated['unit_ids'])) {
+                $product->units()->sync($validated['unit_ids']);
+            }
 
-        if ($request->has('subtypes') && is_array($request->subtypes)) {
-            $existingSubtypeIds = [];
-            foreach ($request->subtypes as $st) {
-                if (!empty($st['name'])) {
-                    $stData = [
-                        'name' => $st['name'],
-                        'code' => $st['code'] ?? null,
-                    ];
-                    if (!empty($st['id']) && $existing = $product->subtypes()->find($st['id'])) {
-                        $existing->update($stData);
-                        $existingSubtypeIds[] = $existing->id;
-                    } else {
-                        $newSt = $product->subtypes()->create($stData);
-                        $existingSubtypeIds[] = $newSt->id;
+            if ($request->has('subtypes') && is_array($request->subtypes)) {
+                $existingSubtypeIds = [];
+                foreach ($request->subtypes as $st) {
+                    if (!empty($st['name'])) {
+                        $stData = [
+                            'name' => $st['name'],
+                            'code' => $st['code'] ?? null,
+                        ];
+                        if (!empty($st['id']) && $existing = $product->subtypes()->find($st['id'])) {
+                            $existing->update($stData);
+                            $existingSubtypeIds[] = $existing->id;
+                        } else {
+                            $newSt = $product->subtypes()->create($stData);
+                            $existingSubtypeIds[] = $newSt->id;
+                        }
                     }
                 }
+                $product->subtypes()->whereNotIn('id', $existingSubtypeIds)->delete();
             }
-            $product->subtypes()->whereNotIn('id', $existingSubtypeIds)->delete();
-        }
+        });
 
         return redirect()->back()->with('success', 'Ürün kaydedildi.');
     }
 
     public function destroyProduct(Product $product): RedirectResponse
     {
+        if (\App\Models\CustomerOrderItem::where('product_id', $product->id)->exists() || \App\Models\DailyHarvestDetail::where('product_id', $product->id)->exists() || \App\Models\ShipmentDelivery::where('product_id', $product->id)->exists()) {
+            return redirect()->back()->withErrors(['error' => 'Bu ürüne bağlı sipariş, hasat veya sevkiyat kayıtları bulunduğu için silinemez.']);
+        }
         $product->delete();
         return redirect()->back()->with('success', 'Ürün silindi.');
     }
@@ -379,12 +419,32 @@ class MasterDefinitionsController extends Controller
 
     public function destroyJobType(JobType $jobType): RedirectResponse
     {
+        if (\App\Models\DailyWorkSheet::where('job_type_id', $jobType->id)->exists()) {
+            return redirect()->back()->withErrors(['error' => 'Bu iş tanımına bağlı iş formu kayıtları bulunduğu için silinemez.']);
+        }
         $jobType->delete();
         return redirect()->back()->with('success', 'İş tanımı silindi.');
     }
 
     public function storeUnitDefinition(Request $request): RedirectResponse
     {
+        if ($request->has('units') && is_array($request->units)) {
+            foreach ($request->units as $u) {
+                if (!empty($u['name']) && !empty($u['symbol'])) {
+                    UnitDefinition::updateOrCreate(
+                        [
+                            'name' => $u['name'],
+                        ],
+                        [
+                            'symbol' => $u['symbol'],
+                            'unit_category' => $u['unit_category'] ?? 'quantity',
+                        ]
+                    );
+                }
+            }
+            return redirect()->back()->with('success', 'Seçilen birimler başarıyla kaydedildi.');
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:100',
             'symbol' => 'required|string|max:20',
@@ -398,6 +458,9 @@ class MasterDefinitionsController extends Controller
 
     public function destroyUnitDefinition(UnitDefinition $unitDefinition): RedirectResponse
     {
+        if (\App\Models\PackagingDefinition::where('unit_id', $unitDefinition->id)->exists()) {
+            return redirect()->back()->withErrors(['error' => 'Bu birim paketleme tanımlarında kullanıldığı için silinemez.']);
+        }
         $unitDefinition->delete();
         return redirect()->back()->with('success', 'Birim silindi.');
     }
@@ -420,6 +483,9 @@ class MasterDefinitionsController extends Controller
 
     public function destroyPackagingDefinition(PackagingDefinition $packagingDefinition): RedirectResponse
     {
+        if (\App\Models\CustomerOrderItem::where('packaging_definition_id', $packagingDefinition->id)->exists() || \App\Models\ShipmentDelivery::where('packaging_definition_id', $packagingDefinition->id)->exists()) {
+            return redirect()->back()->withErrors(['error' => 'Bu paketleme tanımına bağlı sipariş veya sevkiyat kaydı bulunduğu için silinemez.']);
+        }
         $packagingDefinition->delete();
         return redirect()->back()->with('success', 'Paketleme tanımı silindi.');
     }
@@ -448,6 +514,9 @@ class MasterDefinitionsController extends Controller
 
     public function destroyCrewLeader(CrewLeader $crewLeader): RedirectResponse
     {
+        if ($crewLeader->workers()->exists() || \App\Models\DailyWorkSheet::where('crew_leader_id', $crewLeader->id)->exists()) {
+            return redirect()->back()->withErrors(['error' => 'Bu çavuşa bağlı işçiler veya iş formu kayıtları bulunduğu için silinemez.']);
+        }
         $crewLeader->delete();
         return redirect()->back()->with('success', 'Çavuş silindi.');
     }
@@ -471,6 +540,9 @@ class MasterDefinitionsController extends Controller
 
     public function destroyWorker(Worker $worker): RedirectResponse
     {
+        if (\App\Models\DailyHarvestDetail::where('worker_id', $worker->id)->exists()) {
+            return redirect()->back()->withErrors(['error' => 'Bu işçiye ait hasat toplama verileri bulunduğu için silinemez.']);
+        }
         $worker->delete();
         return redirect()->back()->with('success', 'İşçi silindi.');
     }
@@ -493,6 +565,9 @@ class MasterDefinitionsController extends Controller
 
     public function destroyCateringSupplier(CateringSupplier $cateringSupplier): RedirectResponse
     {
+        if (\App\Models\DailyWorkSheet::where('catering_supplier_id', $cateringSupplier->id)->exists()) {
+            return redirect()->back()->withErrors(['error' => 'Bu yemek tedarikçisine bağlı iş formu kayıtları bulunduğu için silinemez.']);
+        }
         $cateringSupplier->delete();
         return redirect()->back()->with('success', 'Yemek tedarikçisi silindi.');
     }
@@ -510,44 +585,49 @@ class MasterDefinitionsController extends Controller
             'is_active' => 'boolean',
         ]);
 
-        if (!empty($validated['is_active'])) {
-            FertilizationRecipe::query()->update(['is_active' => false]);
-        }
+        DB::transaction(function () use ($request, $validated) {
+            if (!empty($validated['is_active'])) {
+                FertilizationRecipe::query()->update(['is_active' => false]);
+            }
 
-        $recipe = FertilizationRecipe::updateOrCreate(['id' => $request->id], $validated);
+            $recipe = FertilizationRecipe::updateOrCreate(['id' => $request->id], $validated);
 
-        if ($request->has('tanks') && is_array($request->tanks)) {
-            $recipe->tanks()->delete();
-            foreach ($request->tanks as $t) {
-                if (!empty($t['tank_name'])) {
-                    $tank = $recipe->tanks()->create([
-                        'tank_name' => $t['tank_name'],
-                        'capacity_liters' => $t['capacity_liters'] ?? 0,
-                    ]);
+            if ($request->has('tanks') && is_array($request->tanks)) {
+                $recipe->tanks()->delete();
+                foreach ($request->tanks as $t) {
+                    if (!empty($t['tank_name'])) {
+                        $tank = $recipe->tanks()->create([
+                            'tank_name' => $t['tank_name'],
+                            'capacity_liters' => $t['capacity_liters'] ?? 0,
+                        ]);
 
-                    if (isset($t['items']) && is_array($t['items'])) {
-                        foreach ($t['items'] as $item) {
-                            if (!empty($item['product_name'])) {
-                                $tank->items()->create([
-                                    'product_name' => $item['product_name'],
-                                    'brand' => $item['brand'] ?? null,
-                                    'quantity' => $item['quantity'] ?? 0,
-                                    'unit' => $item['unit'] ?? 'gr',
-                                    'usage_purpose' => $item['usage_purpose'] ?? null,
-                                    'description' => $item['description'] ?? null,
-                                ]);
+                        if (isset($t['items']) && is_array($t['items'])) {
+                            foreach ($t['items'] as $item) {
+                                if (!empty($item['product_name'])) {
+                                    $tank->items()->create([
+                                        'product_name' => $item['product_name'],
+                                        'brand' => $item['brand'] ?? null,
+                                        'quantity' => $item['quantity'] ?? 0,
+                                        'unit' => $item['unit'] ?? 'gr',
+                                        'usage_purpose' => $item['usage_purpose'] ?? null,
+                                        'description' => $item['description'] ?? null,
+                                    ]);
+                                }
                             }
                         }
                     }
                 }
             }
-        }
+        });
 
         return redirect()->back()->with('success', 'Gübreleme reçetesi kaydedildi.');
     }
 
     public function destroyFertilizationRecipe(FertilizationRecipe $recipe): RedirectResponse
     {
+        if (\App\Models\FertilizationApplication::where('fertilization_recipe_id', $recipe->id)->exists()) {
+            return redirect()->back()->withErrors(['error' => 'Bu gübreleme reçetesine bağlı uygulama kayıtları bulunduğu için silinemez.']);
+        }
         $recipe->delete();
         return redirect()->back()->with('success', 'Gübreleme reçetesi silindi.');
     }
@@ -572,28 +652,33 @@ class MasterDefinitionsController extends Controller
             'is_active' => 'boolean',
         ]);
 
-        $recipe = SprayingRecipe::updateOrCreate(['id' => $request->id], $validated);
+        DB::transaction(function () use ($request, $validated) {
+            $recipe = SprayingRecipe::updateOrCreate(['id' => $request->id], $validated);
 
-        if ($request->has('items') && is_array($request->items)) {
-            $recipe->items()->delete();
-            foreach ($request->items as $item) {
-                if (!empty($item['product_name'])) {
-                    $recipe->items()->create([
-                        'product_name' => $item['product_name'],
-                        'brand' => $item['brand'] ?? null,
-                        'quantity' => $item['quantity'] ?? 0,
-                        'unit' => $item['unit'] ?? 'ml',
-                        'notes' => $item['notes'] ?? null,
-                    ]);
+            if ($request->has('items') && is_array($request->items)) {
+                $recipe->items()->delete();
+                foreach ($request->items as $item) {
+                    if (!empty($item['product_name'])) {
+                        $recipe->items()->create([
+                            'product_name' => $item['product_name'],
+                            'brand' => $item['brand'] ?? null,
+                            'quantity' => $item['quantity'] ?? 0,
+                            'unit' => $item['unit'] ?? 'ml',
+                            'notes' => $item['notes'] ?? null,
+                        ]);
+                    }
                 }
             }
-        }
+        });
 
         return redirect()->back()->with('success', 'İlaçlama reçetesi kaydedildi.');
     }
 
     public function destroySprayingRecipe(SprayingRecipe $recipe): RedirectResponse
     {
+        if (\App\Models\SprayingApplication::where('spraying_recipe_id', $recipe->id)->exists()) {
+            return redirect()->back()->withErrors(['error' => 'Bu ilaçlama reçetesine bağlı uygulama kayıtları bulunduğu için silinemez.']);
+        }
         $recipe->delete();
         return redirect()->back()->with('success', 'İlaçlama reçetesi silindi.');
     }
@@ -616,6 +701,9 @@ class MasterDefinitionsController extends Controller
 
     public function destroyWaterSource(WaterSource $waterSource): RedirectResponse
     {
+        if (\App\Models\WaterAnalysisLog::where('water_source_id', $waterSource->id)->exists() || \App\Models\RawWaterControl::where('water_source_id', $waterSource->id)->exists() || \App\Models\PurificationControl::where('water_source_id', $waterSource->id)->exists()) {
+            return redirect()->back()->withErrors(['error' => 'Bu su kaynağına bağlı analiz veya kontrol kayıtları bulunduğu için silinemez.']);
+        }
         $waterSource->delete();
         return redirect()->back()->with('success', 'Su kaynağı silindi.');
     }

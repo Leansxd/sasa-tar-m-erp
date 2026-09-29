@@ -80,6 +80,13 @@ class AgricultureController extends Controller
         $workPlansQuery = WorkPlan::with(['productionLocation', 'jobType', 'assignedPersonnel', 'comments.personnel']);
         $waterSourcesQuery = WaterSource::with('filters');
 
+        $fertRunsQuery = FertilizationRun::with(['recipe.tanks.items', 'tankLogs.preparedBy', 'tankLogs.tank']);
+        $irrigationQuery = IrrigationSchedule::with(['recipe', 'valves.valve', 'valves.location']);
+        $sprayQuery = SprayingApplication::with(['recipe', 'appliedBy']);
+        $waterAnalysisQuery = WaterAnalysisLog::with('waterSource');
+        $rawWaterQuery = RawWaterControl::with('waterSource');
+        $purificationQuery = PurificationControl::with('waterSource');
+
         if ($companyIds !== null) {
             $companiesQuery->whereIn('id', $companyIds);
             $locationsQuery->whereIn('company_id', $companyIds);
@@ -89,6 +96,10 @@ class AgricultureController extends Controller
                     ->orWhereHas('productionLocation', fn ($sq) => $sq->whereIn('company_id', $companyIds));
             });
             $waterSourcesQuery->whereHas('productionLocation', fn ($sq) => $sq->whereIn('company_id', $companyIds));
+            $irrigationQuery->whereHas('valves.location', fn ($sq) => $sq->whereIn('company_id', $companyIds));
+            $waterAnalysisQuery->whereHas('waterSource.productionLocation', fn ($sq) => $sq->whereIn('company_id', $companyIds));
+            $rawWaterQuery->whereHas('waterSource.productionLocation', fn ($sq) => $sq->whereIn('company_id', $companyIds));
+            $purificationQuery->whereHas('waterSource.productionLocation', fn ($sq) => $sq->whereIn('company_id', $companyIds));
         }
 
         $data = [
@@ -97,8 +108,8 @@ class AgricultureController extends Controller
             'companies' => $companiesQuery->get(),
             'locations' => $locationsQuery->get(),
             'jobTypes' => JobType::all(),
-            'personnels' => Personnel::all(),
-            'workers' => Worker::with('crewLeader')->get(),
+            'personnels' => Personnel::where('is_active', true)->get(),
+            'workers' => Worker::with('crewLeader')->where('is_active', true)->get(),
             'products' => Product::with(['subtypes', 'packagings'])->get(),
             'crewLeaders' => CrewLeader::with('workers')->get(),
             'tradingParties' => TradingParty::all(),
@@ -124,17 +135,17 @@ class AgricultureController extends Controller
         if ($module === 'is_planlama') {
             $data['workPlans'] = $workPlansQuery->latest()->get();
         } elseif ($module === 'gubreleme') {
-            $data['fertRuns'] = FertilizationRun::with(['recipe.tanks.items', 'tankLogs.preparedBy', 'tankLogs.tank'])->latest()->get();
+            $data['fertRuns'] = $fertRunsQuery->latest()->get();
         } elseif ($module === 'sulama') {
-            $data['irrigationSchedules'] = IrrigationSchedule::with(['recipe', 'valves.valve', 'valves.location'])->latest()->get();
+            $data['irrigationSchedules'] = $irrigationQuery->latest()->get();
         } elseif ($module === 'ilaclama') {
-            $data['sprayApplications'] = SprayingApplication::with(['recipe', 'appliedBy'])->latest()->get();
+            $data['sprayApplications'] = $sprayQuery->latest()->get();
         } elseif ($module === 'su_analizleri') {
-            $data['waterAnalysisLogs'] = WaterAnalysisLog::with('waterSource')->latest()->get();
+            $data['waterAnalysisLogs'] = $waterAnalysisQuery->latest()->get();
         } elseif ($module === 'kaynak_suyu_kontrol') {
-            $data['rawWaterControls'] = RawWaterControl::with('waterSource')->latest()->get();
+            $data['rawWaterControls'] = $rawWaterQuery->latest()->get();
         } elseif ($module === 'aritma_suyu_kontrol') {
-            $data['purificationControls'] = PurificationControl::with('waterSource')->latest()->get();
+            $data['purificationControls'] = $purificationQuery->latest()->get();
         } elseif ($module === 'alinan_siparis') {
             $data['customerOrders'] = CustomerOrder::with(['tradingParty', 'items.product', 'items.packaging', 'shipments'])->latest()->get();
         } elseif ($module === 'sevkiyat_teslimat') {

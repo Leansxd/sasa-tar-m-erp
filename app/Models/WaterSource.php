@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\BelongsToTenant;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,11 +11,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class WaterSource extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     protected $table = 'su_kaynaklari';
 
     protected $fillable = [
+        'tenant_id',
         'production_location_id',
         'name',
         'active_cycle_minutes',

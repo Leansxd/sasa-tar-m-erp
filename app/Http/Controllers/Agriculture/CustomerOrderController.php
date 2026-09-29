@@ -53,6 +53,10 @@ class CustomerOrderController extends Controller
 
     public function updateCustomerOrder(Request $request, CustomerOrder $order): RedirectResponse
     {
+        if ($order->status === 'shipped') {
+            return redirect()->back()->withErrors(['error' => 'Sevk edilmiş (tamamlanmış) siparişler güncellenemez.']);
+        }
+
         $validated = $request->validate([
             'trading_party_id' => 'required|exists:cari_taraflar,id',
             'order_date' => 'required|date',
@@ -103,11 +107,21 @@ class CustomerOrderController extends Controller
 
     public function destroyCustomerOrder(CustomerOrder $order): RedirectResponse
     {
+        $user = auth()->user();
+        $personnel = \App\Models\Personnel::where('user_id', $user->id)->first();
+        if (!$user->is_admin && !in_array('operasyon', $personnel->permissions ?? [])) {
+            return redirect()->back()->withErrors(['error' => 'Sipariş silme yetkiniz bulunmamaktadır.']);
+        }
+
         if ($order->shipments()->exists()) {
             return redirect()->back()->withErrors(['error' => 'Bu siparişe bağlı sevkiyat kayıtları bulunmaktadır. Önce ilgili sevkiyatları silmelisiniz.']);
         }
 
-        $order->delete();
+        DB::transaction(function () use ($order) {
+            $order->items()->delete();
+            $order->delete();
+        });
+
         return redirect()->back()->with('success', 'Sipariş kaydı silindi.');
     }
 

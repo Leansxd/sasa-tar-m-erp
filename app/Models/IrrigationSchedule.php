@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\BelongsToTenant;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,11 +11,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class IrrigationSchedule extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     protected $table = 'sulama_programlari';
 
     protected $fillable = [
+        'tenant_id',
         'schedule_date',
         'run_number',
         'start_time',

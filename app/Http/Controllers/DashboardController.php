@@ -97,26 +97,33 @@ class DashboardController extends Controller
             'et0_evapotranspiration' => 3.8,
         ];
 
-        $phiWarnings = [
-            [
-                'location' => 'Sera A - Çilek Tünelleri',
-                'pesticide' => 'Ortiva (Azoxystrobin)',
-                'applied_date' => now()->subDays(2)->toDateString(),
-                'phi_days' => 7,
-                'remaining_days' => 5,
-                'status' => 'restricted',
-                'message' => 'Hasat Edilemez (Gıda Güvenliği İlaç Bekleme Süresi)',
-            ],
-            [
-                'location' => 'Sera B - Muz Bloku',
-                'pesticide' => 'Signum (Boscalid)',
-                'applied_date' => now()->subDays(6)->toDateString(),
-                'phi_days' => 7,
-                'remaining_days' => 1,
-                'status' => 'warning',
-                'message' => 'Son 1 Gün Bekleme Süresi Kaldı',
-            ],
-        ];
+        $sprayingApps = \App\Models\SprayingApplication::with(['recipe'])
+            ->where('application_date', '>=', now()->subDays(30)->toDateString())
+            ->latest('application_date')
+            ->take(5)
+            ->get();
+
+        $phiWarnings = [];
+        foreach ($sprayingApps as $app) {
+            $appliedDate = Carbon::parse($app->application_date);
+            $phiDays = 7;
+            $passedDays = (int) $appliedDate->diffInDays(now());
+            $remainingDays = max(0, $phiDays - $passedDays);
+
+            if ($remainingDays > 0) {
+                $phiWarnings[] = [
+                    'location' => $app->covered_area_description ?: 'İlaçlama Sahası',
+                    'pesticide' => $app->recipe->name ?? 'İlaçlama',
+                    'applied_date' => $app->application_date->format('Y-m-d'),
+                    'phi_days' => $phiDays,
+                    'remaining_days' => $remainingDays,
+                    'status' => $remainingDays > 1 ? 'restricted' : 'warning',
+                    'message' => $remainingDays > 1 
+                        ? 'Hasat Edilemez (Gıda Güvenliği İlaç Bekleme Süresi)'
+                        : 'Son 1 Gün Bekleme Süresi Kaldı',
+                ];
+            }
+        }
 
         return Inertia::render('Dashboard', [
             'stats' => [
@@ -151,14 +158,13 @@ class DashboardController extends Controller
 
     private function calculatePeriodMetrics($query): array
     {
-        $sheetIds = $query->pluck('id')->toArray();
-        if (empty($sheetIds)) {
+        if (!(clone $query)->exists()) {
             return $this->getEmptyMetrics();
         }
 
-        // 1. Revenue & Harvest Kg (Aggregate)
-        // Check if total_revenue is > 0, otherwise fallback to quantity * unit_price
-        $revenueData = DailyWorkSheetHarvestItem::whereIn('daily_work_sheet_id', $sheetIds)
+        $sheetSubquery = (clone $query)->select('id');
+
+        $revenueData = DailyWorkSheetHarvestItem::whereIn('daily_work_sheet_id', $sheetSubquery)
             ->selectRaw('
                 SUM(quantity) as total_kg,
                 SUM(CASE WHEN total_revenue > 0 THEN total_revenue ELSE quantity * unit_price END) as total_rev
@@ -167,7 +173,7 @@ class DashboardController extends Controller
         $revenue = (float) ($revenueData->total_rev ?? 0);
         $harvestKg = (float) ($revenueData->total_kg ?? 0);
 
-        $costData = DailyWorkSheetCrewLeader::whereIn('daily_work_sheet_id', $sheetIds)
+        $costData = DailyWorkSheetCrewLeader::whereIn('daily_work_sheet_id', $sheetSubquery)
             ->selectRaw('
                 SUM(calculated_wage_total) as grand_total,
                 SUM(travel_fee * car_count) as travel_fee,
@@ -179,8 +185,7 @@ class DashboardController extends Controller
         $mealFee = (float) ($costData->meal_fee ?? 0);
         $laborWage = max(0, $totalCost - $travelFee - $mealFee);
 
-        // 3. Products Grouping
-        $productsRaw = DailyWorkSheetHarvestItem::whereIn('daily_work_sheet_id', $sheetIds)
+        $productsRaw = DailyWorkSheetHarvestItem::whereIn('daily_work_sheet_id', $sheetSubquery)
             ->with('product')
             ->selectRaw('
                 product_id,
@@ -209,8 +214,7 @@ class DashboardController extends Controller
             ];
         }
 
-        // 4. Crew Leaders Grouping
-        $crewsRaw = DailyWorkSheetCrewLeader::whereIn('daily_work_sheet_id', $sheetIds)
+        $crewsRaw = DailyWorkSheetCrewLeader::whereIn('daily_work_sheet_id', $sheetSubquery)
             ->with('crewLeader')
             ->selectRaw('
                 crew_leader_id,
@@ -225,10 +229,10 @@ class DashboardController extends Controller
 
         $crewLeaderMap = [];
         foreach ($crewsRaw as $c) {
-            $totalCost = (float) $c->wage_total;
+            $cTotalCost = (float) $c->wage_total;
             $travel = (float) $c->travel_total;
             $meal = (float) $c->meal_total;
-            $wage = max(0, $totalCost - $travel - $meal);
+            $wage = max(0, $cTotalCost - $travel - $meal);
             $clName = $c->crewLeader ? ($c->crewLeader->first_name . ' ' . $c->crewLeader->last_name) : 'Diğer / Tanımsız';
 
             $crewLeaderMap[] = [
@@ -239,7 +243,7 @@ class DashboardController extends Controller
                 'wage_total' => round($wage, 2),
                 'travel_total' => round($travel, 2),
                 'meal_total' => round($meal, 2),
-                'total_cost' => round($totalCost, 2),
+                'total_cost' => round($cTotalCost, 2),
             ];
         }
 
@@ -253,7 +257,7 @@ class DashboardController extends Controller
             ->join($sheetTable, "{$harvestTable}.daily_work_sheet_id", '=', "{$sheetTable}.id")
             ->join($locTable, "{$sheetTable}.production_location_id", '=', "{$locTable}.id")
             ->leftJoin($compTable, "{$locTable}.company_id", '=', "{$compTable}.id")
-            ->whereIn("{$sheetTable}.id", $sheetIds)
+            ->whereIn("{$sheetTable}.id", (clone $query)->select('id'))
             ->selectRaw("
                 {$locTable}.id as loc_id,
                 {$locTable}.name as loc_name,
@@ -266,7 +270,7 @@ class DashboardController extends Controller
 
         $costsByLoc = DB::table($crewTable)
             ->join($sheetTable, "{$crewTable}.daily_work_sheet_id", '=', "{$sheetTable}.id")
-            ->whereIn("{$sheetTable}.id", $sheetIds)
+            ->whereIn("{$sheetTable}.id", (clone $query)->select('id'))
             ->selectRaw("
                 {$sheetTable}.production_location_id as loc_id,
                 SUM({$crewTable}.calculated_wage_total) as total_cost
@@ -339,19 +343,19 @@ class DashboardController extends Controller
         $days = [];
         $startDate = Carbon::today()->subDays(29);
         
-        $sheetIds = (clone $query)->whereDate('work_date', '>=', $startDate->toDateString())->pluck('id')->toArray();
+        $trendsQuery = (clone $query)->whereDate('work_date', '>=', $startDate->toDateString());
         
         $revByDate = [];
         $kgByDate = [];
         $costByDate = [];
         
-        if (!empty($sheetIds)) {
+        if ((clone $trendsQuery)->exists()) {
             $sheetTable = (new DailyWorkSheet)->getTable();
             $harvestTable = (new DailyWorkSheetHarvestItem)->getTable();
             $crewTable = (new DailyWorkSheetCrewLeader)->getTable();
 
             $harvests = DailyWorkSheetHarvestItem::join($sheetTable, "{$harvestTable}.daily_work_sheet_id", '=', "{$sheetTable}.id")
-                ->whereIn("{$sheetTable}.id", $sheetIds)
+                ->whereIn("{$sheetTable}.id", (clone $trendsQuery)->select('id'))
                 ->selectRaw("
                     {$sheetTable}.work_date,
                     SUM({$harvestTable}.quantity) as total_kg,
@@ -369,7 +373,7 @@ class DashboardController extends Controller
             }
             
             $costs = DailyWorkSheetCrewLeader::join($sheetTable, "{$crewTable}.daily_work_sheet_id", '=', "{$sheetTable}.id")
-                ->whereIn("{$sheetTable}.id", $sheetIds)
+                ->whereIn("{$sheetTable}.id", (clone $trendsQuery)->select('id'))
                 ->selectRaw("
                     {$sheetTable}.work_date,
                     SUM({$crewTable}.calculated_wage_total) as total_cost

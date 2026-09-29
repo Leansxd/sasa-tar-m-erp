@@ -72,6 +72,12 @@ class FertilizationController extends Controller
 
     public function destroyFertilizationRun(FertilizationRun $run): RedirectResponse
     {
+        $user = auth()->user();
+        $personnel = \App\Models\Personnel::where('user_id', $user->id)->first();
+        if (!$user->is_admin && !in_array('uretim', $personnel->permissions ?? [])) {
+            return redirect()->back()->withErrors(['error' => 'Gübreleme reçetesi silme yetkiniz bulunmamaktadır.']);
+        }
+
         if ($run->is_active) {
             return redirect()->back()->withErrors(['error' => 'Şu anda sahada aktif olan bir gübreleme reçetesi silinemez. Önce pasife alınız.']);
         }

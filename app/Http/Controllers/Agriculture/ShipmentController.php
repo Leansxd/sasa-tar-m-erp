@@ -60,6 +60,12 @@ class ShipmentController extends Controller
 
     public function destroyShipmentDelivery(ShipmentDelivery $shipment): RedirectResponse
     {
+        $user = auth()->user();
+        $personnel = \App\Models\Personnel::where('user_id', $user->id)->first();
+        if (!$user->is_admin && !in_array('operasyon', $personnel->permissions ?? [])) {
+            return redirect()->back()->withErrors(['error' => 'Sevkiyat kaydı silme yetkiniz bulunmamaktadır.']);
+        }
+
         $order = $shipment->order;
         $shipment->delete();
 

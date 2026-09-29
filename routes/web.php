@@ -14,6 +14,7 @@ use App\Http\Controllers\Agriculture\MarketPriceController;
 use App\Http\Controllers\MasterDefinitionsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SetupWizardController;
+use App\Http\Controllers\SuperAdminController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -22,10 +23,31 @@ Route::get('/', function () {
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
+Route::prefix('scontrol')->name('master-control.')->group(function () {
+    Route::get('/', [SuperAdminController::class, 'index'])->name('index');
+    Route::post('/login', [SuperAdminController::class, 'login'])->name('login');
+    Route::post('/logout', [SuperAdminController::class, 'logout'])->name('logout');
+    Route::get('/refresh-captcha', [SuperAdminController::class, 'refreshCaptcha'])->name('refresh-captcha');
+    Route::post('/tenants', [SuperAdminController::class, 'storeTenant'])->name('tenants.store');
+    Route::patch('/tenants/{tenant}/toggle-status', [SuperAdminController::class, 'toggleTenantStatus'])->name('tenants.toggle-status');
+    Route::put('/tenants/{tenant}/admin', [SuperAdminController::class, 'updateTenantAdmin'])->name('tenants.update-admin');
+    Route::put('/tenants/{tenant}/license', [SuperAdminController::class, 'updateTenantLicense'])->name('tenants.update-license');
+    Route::post('/tenants/{tenant}/impersonate', [SuperAdminController::class, 'impersonate'])->name('tenants.impersonate');
+    Route::get('/tenants/{tenant}/backup', [SuperAdminController::class, 'backupTenant'])->name('tenants.backup');
+    Route::delete('/tenants/{tenant}', [SuperAdminController::class, 'destroyTenant'])->name('tenants.destroy');
+    Route::post('/stop-impersonate', [SuperAdminController::class, 'stopImpersonate'])->name('stop-impersonate');
+});
+
+Route::get('/master-control', function () {
+    return redirect()->route('master-control.index');
+});
+
 Route::middleware('auth')->group(function () {
 
-    Route::get('/setup', [SetupWizardController::class, 'index'])->name('setup.index');
-    Route::get('/setup/data', [SetupWizardController::class, 'getData'])->name('setup.data');
+    Route::middleware('permission:tanimlamalar')->group(function () {
+        Route::get('/setup', [SetupWizardController::class, 'index'])->name('setup.index');
+        Route::get('/setup/data', [SetupWizardController::class, 'getData'])->name('setup.data');
+    });
 
     Route::prefix('agriculture')->name('agriculture.')->group(function () {
         Route::get('/', [AgricultureController::class, 'index'])->name('index');

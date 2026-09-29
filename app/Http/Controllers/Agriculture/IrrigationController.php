@@ -28,30 +28,38 @@ class IrrigationController extends Controller
         }
 
         $scheduleData = collect($validated)->except('tank_stage_note')->toArray();
-        $schedule = IrrigationSchedule::updateOrCreate(['id' => $request->id], $scheduleData);
+        DB::transaction(function () use ($request, $validated, $scheduleData) {
+            $schedule = IrrigationSchedule::updateOrCreate(['id' => $request->id], $scheduleData);
 
-        if ($request->has('valves') && is_array($request->valves)) {
-            $schedule->valves()->delete();
-            $locId = $request->production_location_id;
-            foreach ($request->valves as $v) {
-                $valveId = $v['location_valve_id'] ?? $v['valve_id'] ?? null;
-                $vLocId = $v['production_location_id'] ?? $locId;
-                if (!empty($valveId) && !empty($vLocId) && \App\Models\LocationValve::where('id', $valveId)->exists()) {
-                    $schedule->valves()->create([
-                        'production_location_id' => $vLocId,
-                        'location_valve_id' => $valveId,
-                        'duration_minutes' => $v['duration_minutes'] ?? 5,
-                        'tank_step_level' => $v['tank_step_level'] ?? $validated['tank_stage_note'] ?? null,
-                    ]);
+            if ($request->has('valves') && is_array($request->valves)) {
+                $schedule->valves()->delete();
+                $locId = $request->production_location_id;
+                foreach ($request->valves as $v) {
+                    $valveId = $v['location_valve_id'] ?? $v['valve_id'] ?? null;
+                    $vLocId = $v['production_location_id'] ?? $locId;
+                    if (!empty($valveId) && !empty($vLocId) && \App\Models\LocationValve::where('id', $valveId)->exists()) {
+                        $schedule->valves()->create([
+                            'production_location_id' => $vLocId,
+                            'location_valve_id' => $valveId,
+                            'duration_minutes' => $v['duration_minutes'] ?? 5,
+                            'tank_step_level' => $v['tank_step_level'] ?? $validated['tank_stage_note'] ?? null,
+                        ]);
+                    }
                 }
             }
-        }
+        });
 
         return redirect()->back()->with('success', 'Sulama programı kaydedildi.');
     }
 
     public function destroyIrrigationSchedule(IrrigationSchedule $schedule): RedirectResponse
     {
+        $user = auth()->user();
+        $personnel = \App\Models\Personnel::where('user_id', $user->id)->first();
+        if (!$user->is_admin && !in_array('uretim', $personnel->permissions ?? [])) {
+            return redirect()->back()->withErrors(['error' => 'Sulama programı silme yetkiniz bulunmamaktadır.']);
+        }
+
         $schedule->delete();
         return redirect()->back()->with('success', 'Sulama programı kaydı silindi.');
     }

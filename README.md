@@ -178,6 +178,32 @@ Gübreleme ve zirai ilaçlama için standart kimyasal formüller ve su kuyuları
 
 ---
 
+### 15. 🛡️ Çoklu Şirket (Multi-Tenant) & SControl Yönetim Merkezi (`/scontrol`)
+Yazılımın SaaS olarak farklı tarım şirketlerine ve müşterilere kiralanabilmesini sağlayan merkezi süper yönetici kokpiti.
+
+- **👁️ Göz At (Ghost Login / Impersonate):** Süper yöneticinin müşteri şirketinin ERP paneline şifresini bilmeden tek tıkla geçiş yapabilmesi ve üst bildirim çubuğundan Master Paneline anında geri dönebilmesi.
+- **⏳ Lisans Süresi & Otomatik Süre Aşımı Yönetimi:** Şirketlere özel lisans bitiş tarihi (`expires_at`), gün ekleme, sınırsız yapma veya süresi dolan şirketlerin paneline erişimi otomatik dondurma.
+- **💾 Tek Tıkla Müşteri Veritabanı Yedeği:** İlgili müşteri şirketine ait tüm kullanıcı, saha, iş formu ve analiz verilerini tek tıkla izole JSON dosyası olarak dışa aktarma / yedekleme.
+- **🔑 Uzaktan Yönetici Hesabı & Şifre Güncelleme:** Müşteri kurucu hesabının e-postasını veya şifresini Master Panel üzerinden anında sıfırlama.
+- **⚡ Şirket Erişim Durumu & Güvenlik:** Şirket erişimini tek tıkla dondurma/açma ve site içi minimalist onay pencereleri ile güvenli işlem yapısı.
+- **📊 Kompakt Metrik Göstergeleri:** Şirketlerin anlık aktif personel, kayıtlı sera/arazi ve günlük iş formu sayılarını gösteren dinamik vektörel rozetler.
+
+---
+
+## 🚀 Son Güncellemeler & Mimari İyileştirmeler
+
+- **SControl SaaS Kokpiti Entegrasyonu:** Tüm süper yönetici rotaları ve kontrol mekanizmaları optimize edilmiş `/scontrol` yapısına taşındı.
+- **Ghost Login & Dinamik Banner:** `AuthenticatedLayout` üzerine entegre edilen akıllı bildirim çubuğu sayesinde impersonation oturumları güvenle yönetilebilir hale getirildi.
+- **Lisans Migration & Middleware Kontrolü:** Veritabanına eklenen `expires_at` alanı üzerinden şirketlerin lisans süreleri anlık denetlenir, süresi biten hesaplara kilit uyarısı verilir.
+- **İzole JSON Yedekleme:** Müşteri bazlı veritabanı yedeği dışa aktarımı ile her şirketin kendi verisi bağımsız olarak arşivlenebilir.
+- **Arayüz ve UX İyileştirmeleri:**
+  - Header logo oranları dengelenerek tüm ekranlarda net ve düzenli hale getirildi.
+  - Tablodaki gereksiz yatay kaydırma çubuğu (scroll) kaldırılarak tam duyarlı (responsive) ızgara düzenine geçildi.
+  - Tarayıcının varsayılan uyarı pencereleri (`confirm`), koyu temalı minimalist site içi onay modalları ile değiştirildi.
+- **Kod Tabanı Temizliği:** Aktif olmayan SMS servis bağımlılıkları arındırılarak sade ve yüksek performanslı mimari korundu.
+
+---
+
 ## 🛠️ Teknoloji Yığını (Tech Stack)
 
 | Katman | Teknoloji | Açıklama |
@@ -299,9 +325,10 @@ Uygulama varsayılan olarak `http://127.0.0.1:8000` adresinde çalışacaktır.
 
 Veritabanı seeder'ı çalıştırıldığında aşağıdaki test hesapları hazır olarak oluşturulur:
 
-| Rol | E-Posta | Şifre | Yetki Kapsamı |
+| Rol | E-Posta / URL | Şifre | Yetki Kapsamı |
 |---|---|---|---|
-| **Yönetici (Admin)** | `admin@sasa.com` | `password` | Tam yetki, onaylama ve sistem tanımlamaları |
+| **Master Root (Süper Admin)** | `/scontrol` / `master@sasa.com` | `password` | Tüm müşteri şirketleri, lisans ve provizyon yönetimi |
+| **Yönetici (Admin)** | `admin@sasa.com` | `password` | Tam ERP yetkisi, onaylama ve sistem tanımlamaları |
 | **Ziraat Mühendisi** | `ziraat.selin@sasa.com` | `password` | Tesis, Üretim ve Teknik modülleri |
 | **Saha Sorumlusu** | `saha.mustafa@sasa.com` | `password` | Operasyon ve Günlük İşçi Puantajı |
 
